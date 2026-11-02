@@ -68,110 +68,28 @@ const S = {
   shoot: (desc) => ({ title: "CHỤP NGAY!", desc, shoot: true }),
 };
 
-/* =====================================================================
-   Từng chủ đề: thẻ chuẩn bị + các bước chụp
-   ===================================================================== */
-const MODES = {
-  pho: {
-    icon: "🍜", name: "Tô phở / bún / mì", desc: "Tô nước, đang bốc khói", facing: "environment",
-    guide: '<circle cx="50" cy="50" r="36"/>',
-    prep: [
-      { icon: "🪟", head: "Dọn tô ra chỗ sáng", text: "Nhờ/dịch tô phở ra gần cửa sổ hoặc cửa quán. Đèn vàng trên trần làm nước dùng ngả vàng, kém ngon.", dg: "light" },
-      { icon: "🧽", head: "Làm đẹp tô phở", text: "Lau giọt nước dùng bắn ra viền tô. Xếp rau thơm, chanh, ớt lên mặt tô hoặc để cạnh tô cho có màu." },
-      { icon: "⏱️", head: "Chụp trong 30 giây", text: "Phở còn bốc khói thì ảnh mới 'ngon'. Hãy chuẩn bị xong rồi mới bắt đầu. App không bật flash – đúng ý rồi đấy!" },
-    ],
-    steps: [
-      S.light("tô phở"),
-      S.flat("tô phở"),
-      S.frame("Vừa khít vòng tròn", "Đưa máy lên hoặc xuống cho tô vừa vặn trong vòng tròn trắng, thấy trọn viền tô."),
-      S.steady(),
-      S.shoot("Bấm nút tròn trắng. Chụp liền 3 tấm rồi chọn tấm đẹp nhất."),
-    ],
-  },
-  table: {
-    icon: "🍽️", name: "Cả bàn nhiều món", desc: "Bàn ăn, đồ ăn nhóm", facing: "environment",
-    guide: '<rect x="8" y="8" width="84" height="84" rx="6" stroke-dasharray="3 2"/>',
-    prep: [
-      { icon: "🧹", head: "Dọn bàn trước", text: "Bỏ chai lọ, khăn giấy, điện thoại, vỏ chai ra khỏi bàn. Bàn càng gọn ảnh càng đẹp." },
-      { icon: "🍲", head: "Gom các món lại", text: "Đẩy các đĩa lại gần nhau, đủ chạm mép. Món chính ở giữa, món phụ xung quanh." },
-      { icon: "🪟", head: "Ngồi chỗ sáng", text: "Chọn bàn gần cửa sổ/cửa ra vào. Tránh bàn nằm ngay dưới đèn vàng.", dg: "light" },
-    ],
-    steps: [
-      S.light("cả bàn"),
-      S.flat("bàn ăn"),
-      S.frame("Thấy hết các món", "Đứng lên, giơ máy cao cho thấy tất cả các món, chừa chút viền quanh bàn."),
-      S.steady(),
-      S.shoot("Bấm nút tròn trắng. Chụp 2–3 tấm, lần sau đổi chỗ đứng một chút."),
-    ],
-  },
-  dish: {
-    icon: "🥘", name: "Một món cận cảnh", desc: "Cơm, gỏi, nướng, bánh…", facing: "environment",
-    guide: '<ellipse cx="50" cy="52" rx="38" ry="26"/>',
-    prep: [
-      { icon: "🪟", head: "Ánh sáng từ bên hông", text: "Ngồi sao cho cửa sổ nằm ở bên trái hoặc phải món. Ánh sáng chiếu ngang làm món bóng, nổi khối.", dg: "light" },
-      { icon: "🧽", head: "Lau viền đĩa", text: "Lau vết nước sốt, dầu mỡ quanh viền đĩa. Chỉnh rau, chanh cho gọn mắt." },
-      { icon: "👋", head: "Đừng để bóng tay", text: "Cẩn thận bóng tay và bóng điện thoại đổ lên món. Nếu có bóng, xoay nhẹ đĩa." },
-    ],
-    steps: [
-      S.light("món ăn"),
-      S.angle("món ăn"),
-      S.frame("Bước lại gần", "Đừng zoom bằng ngón tay. Đưa máy lại gần cho món chiếm gần hết khung; chỗ ngon nhất đặt gần chấm vàng."),
-      S.steady(),
-      S.shoot("Bấm nút tròn trắng. Chạm nhẹ vào món trên màn hình để lấy nét."),
-    ],
-  },
-  drink: {
-    icon: "🧋", name: "Đồ uống", desc: "Cà phê, trà sữa, nước ép", facing: "environment",
-    guide: '<path d="M34 12h32l-5 78H39z"/>',
-    prep: [
-      { icon: "🪟", head: "Ly gần cửa sổ", text: "Đặt ly cạnh cửa sổ, ánh sáng từ sau hoặc bên hông làm đồ uống trong và lấp lánh.", dg: "light" },
-      { icon: "🧻", head: "Lau ly", text: "Lau hơi nước và dấu vân tay trên ly. Đặt ly trên nền gọn (mặt bàn trơn, khăn, quyển sách)." },
-    ],
-    steps: [
-      S.light("ly nước"),
-      S.upright("ly"),
-      S.frame("Ly nằm giữa khung", "Đưa máy ra xa hoặc lại gần cho ly nằm dọc giữa khung hình, chừa lề hai bên."),
-      S.steady(),
-      S.shoot("Bấm nút tròn trắng. Ly có latte art thì thử chụp từ trên xuống."),
-    ],
-  },
-  shop: {
-    icon: "🏮", name: "Quán / biển hiệu", desc: "Mặt tiền, không gian quán", facing: "environment",
-    guide: '<path d="M20 90V38h60v52M14 38L50 12l36 26"/>',
-    prep: [
-      { icon: "🚶", head: "Lùi ra xa", text: "Đứng cách quán đủ xa để thấy cả biển hiệu và mặt tiền. Đừng chụp sát cửa." },
-      { icon: "👥", head: "Chọn lúc có khách", text: "Quán có vài người ngồi ăn thì ảnh có không khí hơn quán vắng. Đợi người/xe đi qua khung rồi mới chụp." },
-      { icon: "🌙", head: "Ban đêm", text: "Tối thì dựa vào tường/cột cho đỡ rung tay. Bật hẹn giờ 3 giây (nút ⏱ phía trên).", dg: "steady" },
-    ],
-    steps: [
-      S.light("quán"),
-      S.upright("biển hiệu"),
-      S.frame("Thấy cả biển hiệu", "Lùi ra xa cho thấy toàn bộ biển hiệu và cửa quán, không bị cắt mất chữ."),
-      S.steady(),
-      S.shoot("Bấm nút tròn trắng. Chụp thêm 1 tấm cầm máy ngang để lấy rộng hơn."),
-    ],
-  },
-  portrait: {
-    icon: "🙂", name: "Selfie cùng món", desc: "Chụp mặt, chụp cùng món", facing: "user",
-    guide: '<ellipse cx="50" cy="40" rx="18" ry="24"/>',
-    prep: [
-      { icon: "🪟", head: "Quay mặt về phía sáng", text: "Ngồi sao cho cửa sổ/cửa quán ở phía trước mặt hoặc bên cạnh, đừng để ở sau lưng.", dg: "light" },
-      { icon: "🍜", head: "Đưa món vào khung", text: "Đặt món ăn cạnh mặt bạn, hoặc cầm đũa gắp giơ lên – ảnh sẽ có câu chuyện." },
-    ],
-    steps: [
-      S.light("mặt bạn"),
-      S.frame("Mặt nằm trong khung", "Đưa mặt (và món ăn) vào khung hình, mắt ở khoảng 1/3 phía trên màn hình."),
-      S.steady(),
-      S.shoot("Bấm nút tròn trắng. Cười tự nhiên rồi mới bấm."),
-    ],
-  },
-};
+/* Tạo danh sách bước cho một góc chụp */
+function stepsFor(m, ang) {
+  const st = [S.light(m.subject)];
+  if (ang.tilt && ang.tilt !== "none") st.push(S[ang.tilt](m.subject));
+  st.push({ title: ang.frameTitle, desc: ang.frameDesc, diagram: "sample", manual: true });
+  st.push(S.steady());
+  st.push(S.shoot(ang.shoot));
+  return st;
+}
+
+/* Ảnh mẫu: dùng ảnh thật trong samples/ nếu có, không thì dùng hình minh hoạ */
+function sampleHTML(modeKey, ang) {
+  const id = modeKey + "-" + ang.key;
+  return `<div class="sample"><svg viewBox="0 0 100 125" preserveAspectRatio="xMidYMid slice">${SM[id] || ""}</svg>` +
+    `<img src="samples/${id}.jpg" alt="" onload="this.parentNode.classList.add('photo')"><span class="tag">minh hoạ</span></div>`;
+}
 
 /* ====== DOM & trạng thái ====== */
 const $ = id => document.getElementById(id);
 const video = $("video"), gridCv = $("grid"), guide = $("guide");
-const screens = ["home", "prep", "camera", "review", "gallery"];
-let mode = null, facing = "environment", stream = null;
+const screens = ["home", "prep", "angles", "camera", "review", "gallery"];
+let mode = null, modeKey = null, angle = null, steps = [], doneAngles = {}, seenPrep = {}, facing = "environment", stream = null;
 let showGrid = true, timer = 0, analyzeInterval = null;
 let orient = null, shots = [], lastReview = null;
 let metrics = { bright: 128, sharp: 99, backlit: false, warm: false };
@@ -180,14 +98,18 @@ function show(id) { screens.forEach(s => $(s).classList.toggle("active", s === i
 
 /* ====== Màn hình chính ====== */
 $("modes").innerHTML = Object.entries(MODES).map(([k, m]) =>
-  `<button class="mode" data-k="${k}"><span class="ico">${m.icon}</span><b>${m.name}</b><small>${m.desc}</small></button>`).join("");
-$("modes").addEventListener("click", e => { const b = e.target.closest(".mode"); if (b) openPrep(b.dataset.k); });
+  `<button class="mode" data-k="${k}"><span class="ico">${m.icon}</span><b>${m.name}</b><small>${m.desc} · ${m.angles.length} góc</small></button>`).join("");
+$("modes").addEventListener("click", e => { const b = e.target.closest(".mode"); if (b) openMode(b.dataset.k); });
 $("openGallery").onclick = () => { renderGallery(); show("gallery"); };
 $("galleryBack").onclick = () => show("home");
 
 /* ====== Chuẩn bị (thẻ từng bước) ====== */
-function openPrep(k) {
-  mode = MODES[k]; prepIdx = 0;
+function openMode(k) {
+  modeKey = k; mode = MODES[k];
+  if (seenPrep[k]) openAngles(); else openPrep();
+}
+function openPrep() {
+  prepIdx = 0;
   $("prepTitle").textContent = mode.name;
   renderPrep(); show("prep");
 }
@@ -198,20 +120,51 @@ function renderPrep() {
   $("prepText").textContent = c.text;
   $("prepDiagram").innerHTML = c.dg ? DG[c.dg] : "";
   $("prepDots").innerHTML = mode.prep.map((_, i) => `<i class="${i === prepIdx ? "on" : i < prepIdx ? "done" : ""}"></i>`).join("");
-  $("prepNext").textContent = last ? "📷 Mở camera" : "Tiếp →";
+  $("prepNext").textContent = last ? "Chọn góc chụp →" : "Tiếp →";
 }
-$("prepNext").onclick = () => { if (prepIdx < mode.prep.length - 1) { prepIdx++; renderPrep(); } else openCamera(); };
-$("prepSkip").onclick = () => openCamera();
+$("prepNext").onclick = () => { if (prepIdx < mode.prep.length - 1) { prepIdx++; renderPrep(); } else { seenPrep[modeKey] = true; openAngles(); } };
+$("prepSkip").onclick = () => { seenPrep[modeKey] = true; openAngles(); };
 $("prepBack").onclick = () => { if (prepIdx > 0) { prepIdx--; renderPrep(); } else show("home"); };
+
+/* ====== Chọn góc chụp ====== */
+function openAngles() {
+  stopStream(); clearInterval(analyzeInterval);
+  window.removeEventListener("deviceorientation", onTilt);
+  const done = doneAngles[modeKey] || (doneAngles[modeKey] = new Set());
+  $("anglesTitle").textContent = mode.icon + " " + mode.name;
+  $("anglesHint").textContent = `Chụp đủ ${mode.angles.length} góc rồi chọn tấm đẹp nhất. Đã chụp ${done.size}/${mode.angles.length}.`;
+  $("angleList").innerHTML = mode.angles.map((a, i) =>
+    `<button class="angleCard${done.has(a.key) ? " done" : ""}" data-i="${i}">${sampleHTML(modeKey, a)}` +
+    `<b>${i + 1}. ${a.name}</b><small>${a.desc}</small>${done.has(a.key) ? '<span class="check">✓</span>' : ""}</button>`).join("");
+  show("angles");
+}
+$("angleList").addEventListener("click", e => {
+  const b = e.target.closest(".angleCard"); if (!b) return;
+  angle = mode.angles[+b.dataset.i]; openCamera();
+});
+$("anglesBack").onclick = () => show("home");
+$("reviewPrep").onclick = () => openPrep();
+
+/* Ảnh mẫu to khi đang chụp */
+function openSample() {
+  $("sampleBig").innerHTML = sampleHTML(modeKey, angle);
+  $("sampleName").textContent = angle.name;
+  $("sampleDesc").textContent = angle.desc;
+  $("sampleTips").innerHTML = angle.tips.map(t => `<li>${t}</li>`).join("");
+  $("sampleModal").classList.remove("hidden");
+}
+$("sampleBtn").onclick = openSample;
+$("sampleClose").onclick = () => $("sampleModal").classList.add("hidden");
 
 /* ====== Camera ====== */
 async function openCamera() {
   // iOS bắt buộc xin quyền cảm biến ngay trong lúc bấm nút → gọi trước mọi "await"
   const tilt = requestTilt();
   facing = mode.facing;
-  $("modeName").textContent = mode.icon + " " + mode.name;
-  guide.innerHTML = mode.guide;
-  stepState = mode.steps.map(() => ({ done: false, okc: 0, badc: 0, res: null, skipped: false }));
+  $("modeName").textContent = mode.icon + " " + angle.name;
+  guide.innerHTML = angle.guide;
+  steps = stepsFor(mode, angle);
+  stepState = steps.map(() => ({ done: false, okc: 0, badc: 0, res: null, skipped: false }));
   curStep = 0; curSince = Date.now();
   show("camera"); drawGrid(); renderStep();
   await startStream();
@@ -239,12 +192,7 @@ async function startStream() {
 }
 function stopStream() { if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; }
 
-function closeCamera() {
-  stopStream(); clearInterval(analyzeInterval);
-  window.removeEventListener("deviceorientation", onTilt);
-  orient = null; show("home");
-}
-$("back").onclick = closeCamera;
+$("back").onclick = () => { orient = null; openAngles(); };
 $("flip").onclick = () => { facing = facing === "user" ? "environment" : "user"; startStream(); };
 
 /* ====== Lưới ====== */
@@ -325,7 +273,7 @@ function analyze() {
 
 /* ====== Hệ thống từng bước ====== */
 function evalSteps() {
-  mode.steps.forEach((st, i) => {
+  steps.forEach((st, i) => {
     if (!st.check) return;
     const ss = stepState[i];
     const r = CHECK[st.check](metrics, orient);
@@ -334,21 +282,21 @@ function evalSteps() {
     if (r.ok) { ss.okc++; ss.badc = 0; if (!ss.done && ss.okc >= 3) ss.done = true; }
     else { ss.badc++; ss.okc = 0; if (ss.done && !ss.skipped && ss.badc >= 5) ss.done = false; }
   });
-  const first = stepState.findIndex((s, i) => !s.done && !mode.steps[i].shoot);
-  const next = first === -1 ? mode.steps.length - 1 : first;
+  const first = stepState.findIndex((s, i) => !s.done && !steps[i].shoot);
+  const next = first === -1 ? steps.length - 1 : first;
   if (next !== curStep) { curStep = next; curSince = Date.now(); }
   renderStep();
 }
 
 function renderStep() {
-  const st = mode.steps[curStep], ss = stepState[curStep], box = $("stepBox");
-  const n = mode.steps.length;
+  const st = steps[curStep], ss = stepState[curStep], box = $("stepBox");
+  const n = steps.length;
   $("stepLabel").textContent = st.shoot ? "SẴN SÀNG!" : `BƯỚC ${curStep + 1}/${n - 1}`;
-  $("stepDots").innerHTML = mode.steps.slice(0, -1).map((_, i) =>
+  $("stepDots").innerHTML = steps.slice(0, -1).map((_, i) =>
     `<i class="${i === curStep ? "on" : stepState[i].done ? "done" : ""}"></i>`).join("");
   $("stepTitle").textContent = st.title;
   $("stepDesc").textContent = st.desc;
-  $("stepDiagram").innerHTML = st.diagram ? DG[st.diagram] : "";
+  $("stepDiagram").innerHTML = st.diagram === "sample" ? sampleHTML(modeKey, angle) : st.diagram ? DG[st.diagram] : "";
 
   const r = ss.res, status = $("stepStatus");
   let cls = "", txt = "", needDone = false;
@@ -386,11 +334,12 @@ function snap() {
   x.drawImage(video, 0, 0, w, h);
   const f = $("flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
   const m = { ...metrics };
-  const tiltRes = mode.steps.map((st, i) => ["flat", "angle", "upright"].includes(st.check) ? stepState[i].res : null).find(Boolean);
+  const tiltRes = steps.map((st, i) => ["flat", "angle", "upright"].includes(st.check) ? stepState[i].res : null).find(Boolean);
   m.tiltBad = !!(tiltRes && tiltRes.ok === false);
   c.toBlob(blob => {
     const url = URL.createObjectURL(blob);
     shots.unshift(url); updateCount();
+    (doneAngles[modeKey] || (doneAngles[modeKey] = new Set())).add(angle.key);
     lastReview = { url, m };
     setTimeout(showReview, 250);
   }, "image/jpeg", 0.92);
@@ -409,9 +358,12 @@ function showReview() {
   const stars = Math.max(1, 5 - notes.length);
   $("reviewCoach").innerHTML = `<b>${"⭐".repeat(stars)}${"☆".repeat(5 - stars)}</b><br>` +
     (notes.length ? notes.join("<br>") : "🎉 <b>Ảnh đẹp!</b> Đủ sáng, nét và đúng góc. Lưu lại nhé.");
+  const dn = mode && doneAngles[modeKey], nxt = mode && mode.angles.find(a => !(dn && dn.has(a.key)));
+  $("reviewCoach").innerHTML += nxt ? `<br><br>👉 <b>Chụp thêm góc "${nxt.name}"</b> để có nhiều ảnh chọn.` : `<br><br>✅ Bạn đã chụp đủ các góc, giờ chọn tấm đẹp nhất nhé!`;
   show("review");
 }
 $("retake").onclick = () => show(stream ? "camera" : "home");
+$("nextAngle").onclick = () => openAngles();
 
 /* ====== Thư viện ====== */
 function updateCount() {

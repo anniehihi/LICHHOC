@@ -34,6 +34,16 @@
   <button id="prepNext" class="primary">Tiếp →</button>
 </section>
 
+<!-- Chọn góc chụp -->
+<section id="angles" class="screen">
+  <div class="prepTop"><button id="anglesBack">←</button><span id="anglesTitle"></span><span></span></div>
+  <div class="anglesBody">
+    <p id="anglesHint" class="hint"></p>
+    <div id="angleList" class="angleList"></div>
+    <button id="reviewPrep" class="link">📋 Xem lại cách chuẩn bị</button>
+  </div>
+</section>
+
 <!-- Camera -->
 <section id="camera" class="screen">
   <video id="video" playsinline autoplay muted></video>
@@ -69,6 +79,7 @@
   </div>
 
   <div class="bottom">
+    <button id="sampleBtn" class="chip">🖼️ Xem ảnh mẫu</button>
     <div class="controls">
       <button id="lastThumb" class="thumb" aria-label="Ảnh gần nhất"></button>
       <button id="shutter" aria-label="Chụp"><span></span></button>
@@ -85,6 +96,7 @@
   <div id="reviewCoach" class="coach"></div>
   <div class="reviewBtns">
     <button id="retake">↩ Chụp lại</button>
+    <button id="nextAngle">▶ Góc khác</button>
     <a id="download" class="btn" download="anh.jpg">⬇ Lưu ảnh</a>
   </div>
 </section>
@@ -95,6 +107,16 @@
   <div id="galleryGrid" class="galleryGrid"></div>
 </section>
 
+<div id="sampleModal" class="modal hidden">
+  <div class="mcard">
+    <div id="sampleBig" class="bigSample"></div>
+    <h3 id="sampleName"></h3><p id="sampleDesc"></p>
+    <ul id="sampleTips"></ul>
+    <button id="sampleClose" class="primary">Đã hiểu</button>
+  </div>
+</div>
+
+<script src="data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
