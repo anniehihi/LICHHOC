@@ -34,10 +34,6 @@ button,.btn{font:inherit;color:inherit;border:0;cursor:pointer}
 #modeName{font-weight:600;text-shadow:0 1px 3px #000}
 .bottom{position:absolute;bottom:0;left:0;right:0;padding:0 14px max(14px,env(safe-area-inset-bottom));
   background:linear-gradient(#0000,#000c);z-index:3}
-.liveTip{margin:0 auto 8px;width:fit-content;max-width:100%;padding:8px 14px;border-radius:20px;background:#000a;font-weight:600;text-align:center;font-size:15px}
-.liveTip.ok{background:#1b7d2fcc}
-.liveTip.warn{background:#c0392bdd}
-.staticTip{font-size:13.5px;color:#ddd;text-align:center;min-height:36px;line-height:1.35;margin-bottom:10px;text-shadow:0 1px 3px #000}
 .controls{display:flex;align-items:center;justify-content:space-between}
 #shutter{width:76px;height:76px;border-radius:50%;background:#fff3;border:4px solid #fff;padding:5px}
 #shutter span{display:block;width:100%;height:100%;border-radius:50%;background:#fff;transition:transform .1s}
@@ -79,3 +75,48 @@ button,.btn{font:inherit;color:inherit;border:0;cursor:pointer}
 .intro h2{margin-top:0}
 .intro li{margin-bottom:10px;line-height:1.4}
 .intro button{width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#000;font-weight:700;margin-top:6px}
+
+/* ===== Prep (chuẩn bị) ===== */
+#prep{background:#111;padding:0 20px max(20px,env(safe-area-inset-bottom))}
+.prepTop{display:flex;justify-content:space-between;align-items:center;padding:max(12px,env(safe-area-inset-top)) 0 8px;font-weight:600}
+.prepTop button{background:#2a2a30;border-radius:20px;padding:8px 14px;font-size:16px}
+.skip{background:none!important;color:#aaa;font-size:14px!important;text-decoration:underline}
+.prepBody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;overflow-y:auto}
+.bigIcon{font-size:84px;line-height:1}
+.prepBody h2{margin:4px 0 0;font-size:26px;line-height:1.25}
+.prepBody p{margin:0;font-size:19px;line-height:1.5;color:#e6e6e6;max-width:420px}
+.primary{width:100%;padding:16px;border-radius:14px;background:var(--accent);color:#000;font-weight:700;font-size:18px}
+.primary.small{width:auto;padding:12px 22px;font-size:16px}
+.dots{display:flex;gap:6px;justify-content:center}
+.dots i{width:9px;height:9px;border-radius:50%;background:#555}
+.dots i.on{background:var(--accent);transform:scale(1.25)}
+.dots i.done{background:var(--ok)}
+.dots.small i{width:7px;height:7px}
+.diagram svg{width:100%;max-width:260px;height:auto}
+.diagram.mini svg{width:92px}
+.diagram .ln{stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round}
+.diagram .ph{fill:#ffd54a;stroke:none}
+.diagram .fd{fill:#fff3;stroke:#fff;stroke-width:2}
+.diagram .ar{stroke:#4cd964;fill:none;stroke-width:2.5;stroke-linecap:round}
+.diagram .tx{fill:#fff;font-size:9px;font-family:system-ui}
+
+/* ===== Hộp hướng dẫn từng bước ===== */
+.stepBox{position:absolute;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 54px);z-index:3;
+  background:#000c;backdrop-filter:blur(6px);border-radius:18px;padding:12px 14px;border:2px solid #fff3;transition:border-color .2s}
+.stepBox.ok{border-color:var(--ok)}
+.stepBox.bad{border-color:var(--bad)}
+.stepHead{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--accent);font-weight:700;margin-bottom:4px}
+.stepMain{display:flex;gap:10px;align-items:center}
+.stepText{flex:1}
+.stepTitle{font-size:21px;font-weight:800;line-height:1.2;margin-bottom:4px}
+.stepDesc{font-size:15.5px;line-height:1.4;color:#eee}
+.stepStatus{margin-top:8px;padding:8px 10px;border-radius:10px;font-weight:600;font-size:15px;line-height:1.35;background:#fff1}
+.stepStatus.ok{background:#1b7d2fdd}
+.stepStatus.bad{background:#c0392bdd}
+.stepStatus:empty{display:none}
+.stepBtns{display:flex;gap:10px;align-items:center;margin-top:8px}
+.stepBtns:not(:has(button:not(.hidden))){display:none}
+
+#shutter.ready{border-color:var(--ok);animation:pulse 1s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #4cd964aa}100%{box-shadow:0 0 0 18px #4cd96400}}
+#guide{opacity:.75;stroke-width:.8}

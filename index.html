@@ -4,23 +4,37 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chụp Đẹp">
 <title>Chụp Đẹp - Hướng dẫn chụp ảnh</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Màn hình chọn chủ đề -->
+<!-- Chọn bạn muốn chụp gì -->
 <section id="home" class="screen active">
   <header>
     <h1>📸 Chụp Đẹp</h1>
-    <p>Chụp phở, đồ ăn và quán ăn thật ngon. Mở camera, làm theo gợi ý trực tiếp – không cần biết chụp ảnh!</p>
+    <p>Bạn muốn chụp gì? App sẽ chỉ <b>từng bước một</b>, làm xong bước nào thì sang bước đó.</p>
   </header>
   <div id="modes" class="modes"></div>
-  <p class="note">Ảnh chỉ xử lý trên máy bạn, không tải lên đâu cả.</p>
-  <button id="openGallery" class="link">🖼️ Xem ảnh đã chụp (<span id="count">0</span>)</button>
+  <button id="openGallery" class="link">🖼️ Ảnh đã chụp (<span id="count">0</span>)</button>
 </section>
 
-<!-- Màn hình camera -->
+<!-- Chuẩn bị trước khi mở camera -->
+<section id="prep" class="screen">
+  <div class="prepTop"><button id="prepBack">←</button><span id="prepTitle"></span><button id="prepSkip" class="skip">Bỏ qua</button></div>
+  <div class="prepBody">
+    <div id="prepIcon" class="bigIcon"></div>
+    <div id="prepDots" class="dots"></div>
+    <h2 id="prepHead"></h2>
+    <p id="prepText"></p>
+    <div id="prepDiagram" class="diagram"></div>
+  </div>
+  <button id="prepNext" class="primary">Tiếp →</button>
+</section>
+
+<!-- Camera -->
 <section id="camera" class="screen">
   <video id="video" playsinline autoplay muted></video>
   <canvas id="grid" class="overlay"></canvas>
@@ -38,9 +52,23 @@
     </div>
   </div>
 
+  <div id="stepBox" class="stepBox">
+    <div class="stepHead"><span id="stepLabel"></span><div id="stepDots" class="dots small"></div></div>
+    <div class="stepMain">
+      <div class="stepText">
+        <div id="stepTitle" class="stepTitle"></div>
+        <div id="stepDesc" class="stepDesc"></div>
+      </div>
+      <div id="stepDiagram" class="diagram mini"></div>
+    </div>
+    <div id="stepStatus" class="stepStatus"></div>
+    <div class="stepBtns">
+      <button id="stepDone" class="primary small hidden">Xong ✓</button>
+      <button id="stepSkip" class="skip hidden">Bỏ qua bước này</button>
+    </div>
+  </div>
+
   <div class="bottom">
-    <div id="liveTip" class="liveTip">Đang mở camera…</div>
-    <div id="staticTip" class="staticTip"></div>
     <div class="controls">
       <button id="lastThumb" class="thumb" aria-label="Ảnh gần nhất"></button>
       <button id="shutter" aria-label="Chụp"><span></span></button>
@@ -66,20 +94,6 @@
   <div class="top solid"><button id="galleryBack">←</button><span>Ảnh đã chụp</span><span></span></div>
   <div id="galleryGrid" class="galleryGrid"></div>
 </section>
-
-<!-- Hướng dẫn lần đầu -->
-<div id="intro" class="intro hidden">
-  <div class="card">
-    <h2>3 điều cần nhớ 👇</h2>
-    <ol>
-      <li><b>Ánh sáng</b> – ngồi gần cửa sổ hoặc cửa quán, tắt flash. Đèn vàng làm món ăn kém ngon.</li>
-      <li><b>Nhanh tay</b> – tô phở còn khói chụp mới đẹp. Đặt món chính vào giao điểm lưới 3×3.</li>
-      <li><b>Giữ chắc</b> – hai tay cầm máy, thở ra rồi bấm chụp.</li>
-    </ol>
-    <p>App sẽ nhắc bạn trực tiếp khi ảnh tối, rung hoặc máy bị nghiêng.</p>
-    <button id="introOk">Đã hiểu, bắt đầu!</button>
-  </div>
-</div>
 
 <script src="app.js"></script>
 </body>

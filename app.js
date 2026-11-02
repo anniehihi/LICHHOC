@@ -1,111 +1,222 @@
 "use strict";
 
-/* ====== Dữ liệu các chế độ chụp (tập trung đồ ăn & quán ăn) ====== */
+/* =====================================================================
+   Hình minh hoạ nhỏ (nhìn từ bên cạnh) để người mới hiểu cách cầm máy
+   ===================================================================== */
+const DG = {
+  flat: `<svg viewBox="0 0 140 90"><rect class="ph" x="40" y="14" width="60" height="7" rx="3"/>
+    <path class="ar" d="M70 28v22M63 43l7 8 7-8"/>
+    <path class="ln" d="M10 78h120"/><path class="fd" d="M42 78c0-14 12-20 28-20s28 6 28 20z"/>
+    <text class="tx" x="70" y="9" text-anchor="middle">máy nằm phẳng</text></svg>`,
+  angle: `<svg viewBox="0 0 140 90"><g transform="rotate(-40 40 30)"><rect class="ph" x="22" y="26" width="46" height="7" rx="3"/></g>
+    <path class="ar" d="M62 40l22 14M80 46l6 10-11 2"/>
+    <path class="ln" d="M10 78h120"/><path class="fd" d="M70 78c0-12 10-18 24-18s24 6 24 18z"/>
+    <text class="tx" x="70" y="12" text-anchor="middle">nghiêng ~45°</text></svg>`,
+  upright: `<svg viewBox="0 0 140 90"><rect class="ph" x="30" y="10" width="7" height="58" rx="3"/>
+    <path class="ar" d="M46 40h30M69 33l8 7-8 7"/>
+    <path class="ln" d="M10 78h120"/><rect class="fd" x="92" y="40" width="30" height="38" rx="3"/>
+    <text class="tx" x="70" y="87" text-anchor="middle">máy dựng thẳng</text></svg>`,
+  frame: `<svg viewBox="0 0 140 90"><rect class="ln" x="30" y="6" width="80" height="78" rx="6"/>
+    <circle class="fd" cx="70" cy="45" r="26"/><path class="ar" d="M30 6l10 10M110 6l-10 10M30 84l10-10M110 84l-10-10"/></svg>`,
+  light: `<svg viewBox="0 0 140 90"><rect class="ln" x="10" y="10" width="34" height="46" rx="3"/>
+    <path class="ln" d="M27 10v46M10 33h34"/><path class="ar" d="M50 28l22 8M50 38l22 4"/>
+    <path class="ln" d="M10 80h120"/><path class="fd" d="M82 80c0-12 10-18 24-18s24 6 24 18z"/>
+    <text class="tx" x="27" y="68" text-anchor="middle">cửa sổ</text></svg>`,
+  steady: `<svg viewBox="0 0 140 90"><rect class="ph" x="52" y="14" width="36" height="60" rx="6"/>
+    <path class="ln" d="M36 30c-6 10-6 20 0 30M104 30c6 10 6 20 0 30"/></svg>`,
+};
+
+/* =====================================================================
+   Các bước kiểm tra tự động dùng cảm biến + phân tích hình ảnh
+   m = {bright, sharp, backlit, warm}   o = {beta, gamma, roll} hoặc null
+   ===================================================================== */
+const CHECK = {
+  light: (m) => {
+    if (m.bright < 55) return { ok: false, msg: "🌑 Còn tối. Dịch món ra sát cửa sổ / cửa quán, hoặc chỗ có đèn trắng." };
+    if (m.bright > 205) return { ok: false, msg: "☀️ Quá chói. Tránh nắng gắt chiếu thẳng vào món, lùi vào bóng râm." };
+    if (m.backlit) return { ok: false, msg: "🔦 Ngược sáng. Xoay người/xoay món để ánh sáng chiếu vào món, không chiếu thẳng vào camera." };
+    return { ok: true, note: m.warm ? "Hơi ngả vàng do đèn quán – được, nhưng gần cửa sổ sẽ đẹp hơn." : "" };
+  },
+  flat: (m, o) => {
+    if (!o) return { manual: true };
+    const off = Math.round(Math.hypot(o.beta, o.gamma));
+    return off < 10 ? { ok: true } : { ok: false, msg: `📱 Máy đang nghiêng ${off}°. Hạ đầu máy xuống cho mặt máy nằm phẳng (về 0°).` };
+  },
+  angle: (m, o) => {
+    if (!o) return { manual: true };
+    if (Math.abs(o.gamma) > 15) return { ok: false, msg: "↔️ Máy bị lệch trái/phải. Giữ máy cân hai bên." };
+    if (o.beta > 65) return { ok: false, msg: `📱 Đang dựng quá thẳng (${Math.round(o.beta)}°). Cúi đầu máy xuống thêm một chút.` };
+    if (o.beta < 25) return { ok: false, msg: `📱 Đang cúi quá (${Math.round(o.beta)}°). Dựng máy lên một chút.` };
+    return { ok: true };
+  },
+  upright: (m, o) => {
+    if (!o) return { manual: true };
+    if (Math.abs(o.roll) > 3) return { ok: false, msg: `📐 Máy bị nghiêng ${Math.round(Math.abs(o.roll))}°. Xoay cho đường kẻ giữa màn hình thành màu xanh.` };
+    if (o.beta < 78 || o.beta > 102) return { ok: false, msg: "📱 Máy đang ngửa/cúi. Dựng máy thẳng đứng, đừng ngước lên hay cúi xuống." };
+    return { ok: true };
+  },
+  steady: (m) => m.sharp >= 6 ? { ok: true } : { ok: false, msg: "🤚 Hình đang mờ/rung. Hai tay giữ chắc, thở đều. Nếu vẫn mờ, lau ống kính bằng góc áo." },
+};
+
+const S = {
+  light: (what) => ({ title: "Đủ ánh sáng", desc: `Hướng camera về ${what}. Chờ khung này viền xanh.`, diagram: "light", check: "light" }),
+  flat: (what) => ({ title: "Giơ máy phía trên", desc: `Giơ máy lên trên ${what}, mặt máy hướng xuống, nằm phẳng song song mặt bàn.`, diagram: "flat", check: "flat" }),
+  angle: (what) => ({ title: "Nghiêng máy 45°", desc: `Đứng sát mép bàn, nghiêng máy như đang nhìn xuống ${what} theo góc chéo.`, diagram: "angle", check: "angle" }),
+  upright: (what) => ({ title: "Giữ máy thẳng", desc: `Dựng máy thẳng đứng, ngang tầm ${what}.`, diagram: "upright", check: "upright" }),
+  frame: (title, desc) => ({ title, desc, diagram: "frame", manual: true }),
+  steady: () => ({ title: "Giữ yên 2 giây", desc: "Hai khuỷu tay ép sát người, giữ máy thật yên.", diagram: "steady", check: "steady" }),
+  shoot: (desc) => ({ title: "CHỤP NGAY!", desc, shoot: true }),
+};
+
+/* =====================================================================
+   Từng chủ đề: thẻ chuẩn bị + các bước chụp
+   ===================================================================== */
 const MODES = {
   pho: {
-    icon: "🍜", name: "Tô phở / bún / mì", desc: "Tô nước có hơi nóng", facing: "environment", topdown: true,
-    guide: '<circle cx="50" cy="50" r="34"/><circle cx="50" cy="50" r="24"/><path d="M78 20L60 48" stroke-dasharray="none"/>',
-    tips: [
-      "Chụp NGAY khi tô còn bốc khói – khói là thứ làm ảnh phở 'ngon' nhất. Đừng sắp xếp quá lâu.",
-      "Chụp từ trên xuống: giữ máy song song mặt bàn, tô nằm gọn trong vòng tròn.",
-      "Muốn thấy sợi phở và thịt: nghiêng máy khoảng 45°, đứng sát mép bàn.",
-      "Xếp rau thơm, chanh, ớt lên mặt tô hoặc để cạnh tô cho có màu.",
-      "Lau sạch giọt nước dùng bắn ra viền tô trước khi chụp.",
-      "Đưa đôi đũa gắp sợi lên (nhờ người ngồi cùng) – ảnh sẽ sống động hơn hẳn.",
-      "Tắt flash! Flash làm nước dùng bóng loáng và mất màu.",
+    icon: "🍜", name: "Tô phở / bún / mì", desc: "Tô nước, đang bốc khói", facing: "environment",
+    guide: '<circle cx="50" cy="50" r="36"/>',
+    prep: [
+      { icon: "🪟", head: "Dọn tô ra chỗ sáng", text: "Nhờ/dịch tô phở ra gần cửa sổ hoặc cửa quán. Đèn vàng trên trần làm nước dùng ngả vàng, kém ngon.", dg: "light" },
+      { icon: "🧽", head: "Làm đẹp tô phở", text: "Lau giọt nước dùng bắn ra viền tô. Xếp rau thơm, chanh, ớt lên mặt tô hoặc để cạnh tô cho có màu." },
+      { icon: "⏱️", head: "Chụp trong 30 giây", text: "Phở còn bốc khói thì ảnh mới 'ngon'. Hãy chuẩn bị xong rồi mới bắt đầu. App không bật flash – đúng ý rồi đấy!" },
+    ],
+    steps: [
+      S.light("tô phở"),
+      S.flat("tô phở"),
+      S.frame("Vừa khít vòng tròn", "Đưa máy lên hoặc xuống cho tô vừa vặn trong vòng tròn trắng, thấy trọn viền tô."),
+      S.steady(),
+      S.shoot("Bấm nút tròn trắng. Chụp liền 3 tấm rồi chọn tấm đẹp nhất."),
     ],
   },
   table: {
-    icon: "🍽️", name: "Bàn nhiều món", desc: "Cả bàn, đồ ăn nhóm", facing: "environment", topdown: true,
-    guide: '<circle cx="30" cy="35" r="16"/><circle cx="68" cy="40" r="14"/><rect x="25" y="62" width="32" height="22" rx="3"/><circle cx="76" cy="72" r="9"/>',
-    tips: [
-      "Đứng lên hoặc giơ máy cao, chụp thẳng từ trên xuống để thấy hết các món.",
-      "Dồn các món lại gần nhau, bỏ bớt chai lọ, khăn giấy, điện thoại ra khỏi khung.",
-      "Đặt món chính ở giao điểm lưới, các món phụ ở xung quanh.",
-      "Chừa thêm tay người đang gắp/cầm ly vào khung cho ảnh có 'hồn'.",
-      "Chụp 2–3 tấm với bố cục khác nhau rồi chọn tấm đẹp nhất.",
+    icon: "🍽️", name: "Cả bàn nhiều món", desc: "Bàn ăn, đồ ăn nhóm", facing: "environment",
+    guide: '<rect x="8" y="8" width="84" height="84" rx="6" stroke-dasharray="3 2"/>',
+    prep: [
+      { icon: "🧹", head: "Dọn bàn trước", text: "Bỏ chai lọ, khăn giấy, điện thoại, vỏ chai ra khỏi bàn. Bàn càng gọn ảnh càng đẹp." },
+      { icon: "🍲", head: "Gom các món lại", text: "Đẩy các đĩa lại gần nhau, đủ chạm mép. Món chính ở giữa, món phụ xung quanh." },
+      { icon: "🪟", head: "Ngồi chỗ sáng", text: "Chọn bàn gần cửa sổ/cửa ra vào. Tránh bàn nằm ngay dưới đèn vàng.", dg: "light" },
+    ],
+    steps: [
+      S.light("cả bàn"),
+      S.flat("bàn ăn"),
+      S.frame("Thấy hết các món", "Đứng lên, giơ máy cao cho thấy tất cả các món, chừa chút viền quanh bàn."),
+      S.steady(),
+      S.shoot("Bấm nút tròn trắng. Chụp 2–3 tấm, lần sau đổi chỗ đứng một chút."),
     ],
   },
   dish: {
-    icon: "🥘", name: "Món ăn cận cảnh", desc: "Cơm, gỏi, nướng, bánh…", facing: "environment",
-    guide: '<ellipse cx="50" cy="55" rx="36" ry="22"/><ellipse cx="50" cy="52" rx="24" ry="13"/>',
-    tips: [
-      "Nghiêng máy 30–45° so với mặt bàn – góc đẹp nhất cho hầu hết món ăn.",
-      "Lại gần món (bước chân, đừng zoom) và để phần ngon nhất ở giao điểm lưới.",
-      "Ánh sáng chiếu từ bên hông hoặc phía sau món sẽ làm món bóng, hấp dẫn.",
-      "Đừng để bóng tay/điện thoại đổ lên món.",
-      "Món nhiều màu: thêm rau, chanh, ớt; món nâu đen: chụp sáng hơn một chút.",
+    icon: "🥘", name: "Một món cận cảnh", desc: "Cơm, gỏi, nướng, bánh…", facing: "environment",
+    guide: '<ellipse cx="50" cy="52" rx="38" ry="26"/>',
+    prep: [
+      { icon: "🪟", head: "Ánh sáng từ bên hông", text: "Ngồi sao cho cửa sổ nằm ở bên trái hoặc phải món. Ánh sáng chiếu ngang làm món bóng, nổi khối.", dg: "light" },
+      { icon: "🧽", head: "Lau viền đĩa", text: "Lau vết nước sốt, dầu mỡ quanh viền đĩa. Chỉnh rau, chanh cho gọn mắt." },
+      { icon: "👋", head: "Đừng để bóng tay", text: "Cẩn thận bóng tay và bóng điện thoại đổ lên món. Nếu có bóng, xoay nhẹ đĩa." },
+    ],
+    steps: [
+      S.light("món ăn"),
+      S.angle("món ăn"),
+      S.frame("Bước lại gần", "Đừng zoom bằng ngón tay. Đưa máy lại gần cho món chiếm gần hết khung; chỗ ngon nhất đặt gần chấm vàng."),
+      S.steady(),
+      S.shoot("Bấm nút tròn trắng. Chạm nhẹ vào món trên màn hình để lấy nét."),
     ],
   },
   drink: {
     icon: "🧋", name: "Đồ uống", desc: "Cà phê, trà sữa, nước ép", facing: "environment",
-    guide: '<path d="M36 25h28l-4 55H40z"/><path d="M36 38h28"/>',
-    tips: [
-      "Đặt ly gần cửa sổ, ánh sáng từ sau hoặc bên hông làm đồ uống trong và bóng.",
-      "Chụp ngang tầm ly cho ly cao, chụp từ trên xuống cho ly có latte art.",
-      "Lau hơi nước/vân tay trên ly trước khi chụp.",
-      "Cầm ly hoặc để cạnh quyển sách, cây nhỏ cho ảnh có bối cảnh.",
+    guide: '<path d="M34 12h32l-5 78H39z"/>',
+    prep: [
+      { icon: "🪟", head: "Ly gần cửa sổ", text: "Đặt ly cạnh cửa sổ, ánh sáng từ sau hoặc bên hông làm đồ uống trong và lấp lánh.", dg: "light" },
+      { icon: "🧻", head: "Lau ly", text: "Lau hơi nước và dấu vân tay trên ly. Đặt ly trên nền gọn (mặt bàn trơn, khăn, quyển sách)." },
+    ],
+    steps: [
+      S.light("ly nước"),
+      S.upright("ly"),
+      S.frame("Ly nằm giữa khung", "Đưa máy ra xa hoặc lại gần cho ly nằm dọc giữa khung hình, chừa lề hai bên."),
+      S.steady(),
+      S.shoot("Bấm nút tròn trắng. Ly có latte art thì thử chụp từ trên xuống."),
     ],
   },
   shop: {
-    icon: "🏮", name: "Quán / không gian", desc: "Bên ngoài, bên trong quán", facing: "environment",
-    guide: '<path d="M0 62h100"/><rect x="22" y="30" width="56" height="32"/><path d="M22 30L50 14l28 16"/>',
-    tips: [
-      "Chụp biển hiệu và mặt tiền quán cho thẳng: đường giữa màn hình phải màu xanh.",
-      "Đứng lùi ra xa để lấy cả quán, đừng chụp từ sát cửa.",
-      "Bên trong quán: chụp lúc đông khách một chút, có người ăn cho ảnh có không khí.",
-      "Cầm máy dọc để chụp biển hiệu cao, cầm ngang để chụp không gian rộng.",
-      "Đứng chỗ có ánh sáng tự nhiên hoặc đợi người đi qua khung rồi mới chụp.",
-      "Ban đêm: chạm giữ máy chắc, dùng hẹn giờ 3 giây để đỡ mờ.",
+    icon: "🏮", name: "Quán / biển hiệu", desc: "Mặt tiền, không gian quán", facing: "environment",
+    guide: '<path d="M20 90V38h60v52M14 38L50 12l36 26"/>',
+    prep: [
+      { icon: "🚶", head: "Lùi ra xa", text: "Đứng cách quán đủ xa để thấy cả biển hiệu và mặt tiền. Đừng chụp sát cửa." },
+      { icon: "👥", head: "Chọn lúc có khách", text: "Quán có vài người ngồi ăn thì ảnh có không khí hơn quán vắng. Đợi người/xe đi qua khung rồi mới chụp." },
+      { icon: "🌙", head: "Ban đêm", text: "Tối thì dựa vào tường/cột cho đỡ rung tay. Bật hẹn giờ 3 giây (nút ⏱ phía trên).", dg: "steady" },
+    ],
+    steps: [
+      S.light("quán"),
+      S.upright("biển hiệu"),
+      S.frame("Thấy cả biển hiệu", "Lùi ra xa cho thấy toàn bộ biển hiệu và cửa quán, không bị cắt mất chữ."),
+      S.steady(),
+      S.shoot("Bấm nút tròn trắng. Chụp thêm 1 tấm cầm máy ngang để lấy rộng hơn."),
     ],
   },
   portrait: {
-    icon: "🙂", name: "Selfie / người", desc: "Chụp mặt, chụp cùng món", facing: "user",
-    guide: '<ellipse cx="50" cy="38" rx="17" ry="22"/><path d="M18 100c0-22 14-32 32-32s32 10 32 32"/>',
-    tips: [
-      "Ngồi gần cửa sổ hoặc cửa quán, quay mặt về phía ánh sáng.",
-      "Cầm máy ngang tầm mắt hoặc cao hơn một chút.",
-      "Đưa món ăn vào khung, cạnh mặt, cho ảnh có câu chuyện.",
-      "Đèn quán vàng: lùi ra khỏi đèn sát đầu để mặt không bị bóng tối dưới mắt.",
+    icon: "🙂", name: "Selfie cùng món", desc: "Chụp mặt, chụp cùng món", facing: "user",
+    guide: '<ellipse cx="50" cy="40" rx="18" ry="24"/>',
+    prep: [
+      { icon: "🪟", head: "Quay mặt về phía sáng", text: "Ngồi sao cho cửa sổ/cửa quán ở phía trước mặt hoặc bên cạnh, đừng để ở sau lưng.", dg: "light" },
+      { icon: "🍜", head: "Đưa món vào khung", text: "Đặt món ăn cạnh mặt bạn, hoặc cầm đũa gắp giơ lên – ảnh sẽ có câu chuyện." },
+    ],
+    steps: [
+      S.light("mặt bạn"),
+      S.frame("Mặt nằm trong khung", "Đưa mặt (và món ăn) vào khung hình, mắt ở khoảng 1/3 phía trên màn hình."),
+      S.steady(),
+      S.shoot("Bấm nút tròn trắng. Cười tự nhiên rồi mới bấm."),
     ],
   },
 };
 
-/* ====== Tham chiếu DOM ====== */
+/* ====== DOM & trạng thái ====== */
 const $ = id => document.getElementById(id);
 const video = $("video"), gridCv = $("grid"), guide = $("guide");
-const screens = ["home", "camera", "review", "gallery"];
+const screens = ["home", "prep", "camera", "review", "gallery"];
 let mode = null, facing = "environment", stream = null;
-let showGrid = true, timer = 0, tipIdx = 0, tipInterval = null, analyzeInterval = null;
-let tiltMsg = null, tiltOK = null, shots = [], lastReview = null;
-let metrics = { bright: 128, sharp: 99, backlit: false };
-
+let showGrid = true, timer = 0, analyzeInterval = null;
+let orient = null, shots = [], lastReview = null;
+let metrics = { bright: 128, sharp: 99, backlit: false, warm: false };
+let stepState = [], curStep = 0, curSince = 0, prepIdx = 0;
 function show(id) { screens.forEach(s => $(s).classList.toggle("active", s === id)); }
-const safe = (fn, d) => { try { return fn(); } catch { return d; } };
 
 /* ====== Màn hình chính ====== */
 $("modes").innerHTML = Object.entries(MODES).map(([k, m]) =>
   `<button class="mode" data-k="${k}"><span class="ico">${m.icon}</span><b>${m.name}</b><small>${m.desc}</small></button>`).join("");
-$("modes").addEventListener("click", e => {
-  const b = e.target.closest(".mode"); if (b) openCamera(b.dataset.k);
-});
+$("modes").addEventListener("click", e => { const b = e.target.closest(".mode"); if (b) openPrep(b.dataset.k); });
 $("openGallery").onclick = () => { renderGallery(); show("gallery"); };
 $("galleryBack").onclick = () => show("home");
-$("introOk").onclick = () => { $("intro").classList.add("hidden"); safe(() => localStorage.setItem("seenIntro", "1")); };
-if (!safe(() => localStorage.getItem("seenIntro"))) $("intro").classList.remove("hidden");
+
+/* ====== Chuẩn bị (thẻ từng bước) ====== */
+function openPrep(k) {
+  mode = MODES[k]; prepIdx = 0;
+  $("prepTitle").textContent = mode.name;
+  renderPrep(); show("prep");
+}
+function renderPrep() {
+  const c = mode.prep[prepIdx], last = prepIdx === mode.prep.length - 1;
+  $("prepIcon").textContent = c.icon;
+  $("prepHead").textContent = c.head;
+  $("prepText").textContent = c.text;
+  $("prepDiagram").innerHTML = c.dg ? DG[c.dg] : "";
+  $("prepDots").innerHTML = mode.prep.map((_, i) => `<i class="${i === prepIdx ? "on" : i < prepIdx ? "done" : ""}"></i>`).join("");
+  $("prepNext").textContent = last ? "📷 Mở camera" : "Tiếp →";
+}
+$("prepNext").onclick = () => { if (prepIdx < mode.prep.length - 1) { prepIdx++; renderPrep(); } else openCamera(); };
+$("prepSkip").onclick = () => openCamera();
+$("prepBack").onclick = () => { if (prepIdx > 0) { prepIdx--; renderPrep(); } else show("home"); };
 
 /* ====== Camera ====== */
-async function openCamera(k) {
-  mode = MODES[k]; facing = mode.facing;
+async function openCamera() {
+  // iOS bắt buộc xin quyền cảm biến ngay trong lúc bấm nút → gọi trước mọi "await"
+  const tilt = requestTilt();
+  facing = mode.facing;
   $("modeName").textContent = mode.icon + " " + mode.name;
   guide.innerHTML = mode.guide;
-  tipIdx = 0; rotateTip();
-  show("camera");
+  stepState = mode.steps.map(() => ({ done: false, okc: 0, badc: 0, res: null, skipped: false }));
+  curStep = 0; curSince = Date.now();
+  show("camera"); drawGrid(); renderStep();
   await startStream();
-  requestTilt();
-  clearInterval(tipInterval); tipInterval = setInterval(rotateTip, 7000);
+  await tilt;
   clearInterval(analyzeInterval); analyzeInterval = setInterval(analyze, 400);
-  drawGrid();
 }
 
 async function startStream() {
@@ -121,7 +232,7 @@ async function startStream() {
     const msg = !navigator.mediaDevices
       ? "Trình duyệt cần mở bằng HTTPS (hoặc localhost) mới dùng được camera."
       : err.name === "NotAllowedError"
-        ? "Bạn chưa cho phép dùng camera. Hãy bấm vào biểu tượng ổ khoá trên thanh địa chỉ → Cho phép Camera, rồi tải lại trang."
+        ? "Bạn chưa cho phép dùng camera. Trên iPhone: Cài đặt → Safari → Camera → Cho phép, rồi tải lại trang."
         : "Không mở được camera: " + err.message;
     const e = $("error"); e.textContent = msg; e.classList.remove("hidden");
   }
@@ -129,29 +240,27 @@ async function startStream() {
 function stopStream() { if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; }
 
 function closeCamera() {
-  stopStream(); clearInterval(tipInterval); clearInterval(analyzeInterval);
+  stopStream(); clearInterval(analyzeInterval);
   window.removeEventListener("deviceorientation", onTilt);
-  show("home");
+  orient = null; show("home");
 }
 $("back").onclick = closeCamera;
 $("flip").onclick = () => { facing = facing === "user" ? "environment" : "user"; startStream(); };
 
-/* ====== Lưới & bật/tắt ====== */
+/* ====== Lưới ====== */
 function drawGrid() {
   const r = gridCv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
   gridCv.width = r.width * dpr; gridCv.height = r.height * dpr;
   const c = gridCv.getContext("2d"); c.scale(dpr, dpr); c.clearRect(0, 0, r.width, r.height);
   if (!showGrid) return;
-  c.strokeStyle = "rgba(255,255,255,.45)"; c.lineWidth = 1; c.beginPath();
+  c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 1; c.beginPath();
   for (let i = 1; i < 3; i++) {
     c.moveTo(r.width * i / 3, 0); c.lineTo(r.width * i / 3, r.height);
     c.moveTo(0, r.height * i / 3); c.lineTo(r.width, r.height * i / 3);
   }
   c.stroke();
   c.fillStyle = "rgba(255,213,74,.9)";
-  for (let i = 1; i < 3; i++) for (let j = 1; j < 3; j++) {
-    c.beginPath(); c.arc(r.width * i / 3, r.height * j / 3, 4, 0, 7); c.fill();
-  }
+  for (let i = 1; i < 3; i++) for (let j = 1; j < 3; j++) { c.beginPath(); c.arc(r.width * i / 3, r.height * j / 3, 4, 0, 7); c.fill(); }
 }
 addEventListener("resize", drawGrid);
 $("toggleGrid").onclick = e => {
@@ -160,97 +269,113 @@ $("toggleGrid").onclick = e => {
 };
 $("timerBtn").onclick = () => { timer = timer === 0 ? 3 : timer === 3 ? 10 : 0; $("timerVal").textContent = timer; };
 
-/* ====== Gợi ý cố định xoay vòng ====== */
-function rotateTip() {
-  $("staticTip").textContent = "💡 " + mode.tips[tipIdx++ % mode.tips.length];
-}
-
 /* ====== Cảm biến nghiêng ====== */
 async function requestTilt() {
-  if (!("DeviceOrientationEvent" in window)) { $("level").classList.add("hide"); return; }
+  if (!("DeviceOrientationEvent" in window)) return;
   try {
     if (typeof DeviceOrientationEvent.requestPermission === "function") {
       const p = await DeviceOrientationEvent.requestPermission();
-      if (p !== "granted") { $("level").classList.add("hide"); return; }
+      if (p === "denied") return;
     }
     window.addEventListener("deviceorientation", onTilt);
-  } catch { $("level").classList.add("hide"); }
+  } catch { /* không có cảm biến → các bước sẽ chuyển sang nút "Xong" */ }
 }
 function onTilt(e) {
-  if (e.gamma == null || e.beta == null) { $("level").classList.add("hide"); return; }
-  $("level").classList.remove("hide");
-  // Máy cầm dọc: gamma = nghiêng trái/phải. Máy cầm ngang: dùng beta.
-  if (mode && mode.topdown) {
-    // Chụp từ trên xuống: máy phải nằm song song mặt bàn (beta, gamma ≈ 0)
-    const off = Math.hypot(e.beta, e.gamma);
-    tiltOK = off < 12;
-    $("level").classList.add("hide");
-    tiltMsg = tiltOK ? null : off < 40 ? "📱 Hạ máy cho song song mặt bàn (chụp từ trên xuống)" : null;
-    if (off >= 40) tiltOK = true; // đang cầm nghiêng 45° chủ ý, không cảnh báo
-    return;
-  }
+  if (e.gamma == null || e.beta == null) return;
   const portrait = innerHeight >= innerWidth;
   let roll = portrait ? e.gamma : (e.beta > 0 ? 90 - e.beta : -90 - e.beta);
   roll = Math.max(-45, Math.min(45, roll));
-  const flat = Math.abs(roll) < 2.5;
-  tiltOK = Math.abs(roll) < 5;
-  $("level").classList.toggle("flat", flat);
-  $("level").firstElementChild.style.transform = `rotate(${-roll}deg)`;
+  orient = { beta: e.beta, gamma: e.gamma, roll };
+  const lv = $("level");
+  lv.classList.toggle("flat", Math.abs(roll) < 3);
+  lv.firstElementChild.style.transform = `rotate(${-roll}deg)`;
 }
 
-/* ====== Phân tích ảnh trực tiếp: sáng / nét / ngược sáng ====== */
+/* ====== Phân tích hình ảnh trực tiếp ====== */
 const probe = document.createElement("canvas"); probe.width = 96; probe.height = 96;
 const pctx = probe.getContext("2d", { willReadFrequently: true });
 let prevSharp = [];
 function analyze() {
-  if (!video.videoWidth) return;
-  pctx.drawImage(video, 0, 0, 96, 96);
-  const d = pctx.getImageData(0, 0, 96, 96).data;
-  const lum = new Float32Array(96 * 96);
-  let rs = 0, bs = 0, sum = 0, centre = 0, cn = 0, edge = 0, en = 0;
-  for (let i = 0; i < lum.length; i++) {
-    const y = .299 * d[i * 4] + .587 * d[i * 4 + 1] + .114 * d[i * 4 + 2];
-    lum[i] = y; sum += y; rs += d[i * 4]; bs += d[i * 4 + 2];
-    const x = i % 96, r = (i / 96) | 0;
-    if (x > 28 && x < 68 && r > 28 && r < 68) { centre += y; cn++; } else { edge += y; en++; }
+  if (video.videoWidth) {
+    pctx.drawImage(video, 0, 0, 96, 96);
+    const d = pctx.getImageData(0, 0, 96, 96).data;
+    const lum = new Float32Array(96 * 96);
+    let rs = 0, bs = 0, sum = 0, centre = 0, cn = 0, edge = 0, en = 0;
+    for (let i = 0; i < lum.length; i++) {
+      const y = .299 * d[i * 4] + .587 * d[i * 4 + 1] + .114 * d[i * 4 + 2];
+      lum[i] = y; sum += y; rs += d[i * 4]; bs += d[i * 4 + 2];
+      const x = i % 96, r = (i / 96) | 0;
+      if (x > 28 && x < 68 && r > 28 && r < 68) { centre += y; cn++; } else { edge += y; en++; }
+    }
+    const bright = sum / lum.length;
+    let s = 0, s2 = 0, n = 0;
+    for (let r = 1; r < 95; r++) for (let x = 1; x < 95; x++) {
+      const i = r * 96 + x;
+      const l = 4 * lum[i] - lum[i - 1] - lum[i + 1] - lum[i - 96] - lum[i + 96];
+      s += l; s2 += l * l; n++;
+    }
+    prevSharp.push(s2 / n - (s / n) ** 2); if (prevSharp.length > 4) prevSharp.shift();
+    metrics = {
+      bright, sharp: prevSharp.reduce((a, b) => a + b, 0) / prevSharp.length,
+      warm: rs / (bs + 1) > 1.55, backlit: edge / en - centre / cn > 45 && centre / cn < 100,
+    };
   }
-  const bright = sum / lum.length;
-  // độ nét: phương sai Laplacian
-  let s = 0, s2 = 0, n = 0;
-  for (let r = 1; r < 95; r++) for (let x = 1; x < 95; x++) {
-    const i = r * 96 + x;
-    const l = 4 * lum[i] - lum[i - 1] - lum[i + 1] - lum[i - 96] - lum[i + 96];
-    s += l; s2 += l * l; n++;
-  }
-  const sharp = s2 / n - (s / n) ** 2;
-  prevSharp.push(sharp); if (prevSharp.length > 4) prevSharp.shift();
-  const avgSharp = prevSharp.reduce((a, b) => a + b, 0) / prevSharp.length;
-  metrics = { bright, sharp: avgSharp, warm: rs / (bs + 1) > 1.55, backlit: edge / en - centre / cn > 45 && centre / cn < 100 };
-  updateLiveTip();
+  evalSteps();
 }
 
-function updateLiveTip() {
-  const el = $("liveTip"), m = metrics;
-  let msg, cls = "warn";
-  if (m.bright < 55) msg = "🌑 Quá tối – tìm chỗ sáng hơn hoặc bật đèn";
-  else if (m.bright > 205) msg = "☀️ Quá sáng – tránh nắng gắt, che bớt ánh sáng";
-  else if (m.backlit) msg = "🔦 Ngược sáng – xoay người để ánh sáng chiếu vào chủ thể";
-  else if (m.warm) msg = "💡 Đèn vàng làm món ngả màu – ngồi gần cửa sổ/ánh sáng trắng hơn";
-  else if (tiltOK === false) msg = tiltMsg || "📐 Máy đang nghiêng – xoay cho đường giữa thành màu xanh";
-  else if (m.sharp < 6 && m.bright >= 55) msg = "🤚 Ảnh mờ/rung – giữ chắc tay, hoặc lau ống kính";
-  else { msg = "✅ Tuyệt! Ánh sáng và độ nét tốt – chụp đi"; cls = "ok"; }
-  el.textContent = msg; el.className = "liveTip " + cls;
-  $("shutter").classList.toggle("good", cls === "ok");
+/* ====== Hệ thống từng bước ====== */
+function evalSteps() {
+  mode.steps.forEach((st, i) => {
+    if (!st.check) return;
+    const ss = stepState[i];
+    const r = CHECK[st.check](metrics, orient);
+    ss.res = r;
+    if (r.manual) return;
+    if (r.ok) { ss.okc++; ss.badc = 0; if (!ss.done && ss.okc >= 3) ss.done = true; }
+    else { ss.badc++; ss.okc = 0; if (ss.done && !ss.skipped && ss.badc >= 5) ss.done = false; }
+  });
+  const first = stepState.findIndex((s, i) => !s.done && !mode.steps[i].shoot);
+  const next = first === -1 ? mode.steps.length - 1 : first;
+  if (next !== curStep) { curStep = next; curSince = Date.now(); }
+  renderStep();
 }
+
+function renderStep() {
+  const st = mode.steps[curStep], ss = stepState[curStep], box = $("stepBox");
+  const n = mode.steps.length;
+  $("stepLabel").textContent = st.shoot ? "SẴN SÀNG!" : `BƯỚC ${curStep + 1}/${n - 1}`;
+  $("stepDots").innerHTML = mode.steps.slice(0, -1).map((_, i) =>
+    `<i class="${i === curStep ? "on" : stepState[i].done ? "done" : ""}"></i>`).join("");
+  $("stepTitle").textContent = st.title;
+  $("stepDesc").textContent = st.desc;
+  $("stepDiagram").innerHTML = st.diagram ? DG[st.diagram] : "";
+
+  const r = ss.res, status = $("stepStatus");
+  let cls = "", txt = "", needDone = false;
+  if (st.shoot) { cls = "ok"; txt = "✓ Mọi thứ đều tốt!"; }
+  else if (st.manual || (r && r.manual)) { needDone = true; }
+  else if (r && r.ok) { cls = "ok"; txt = "✓ Tốt! Giữ nguyên…" + (r.note ? " " + r.note : ""); }
+  else if (r) { cls = "bad"; txt = r.msg; }
+  status.className = "stepStatus " + cls; status.textContent = txt;
+  box.className = "stepBox " + cls;
+
+  const done = $("stepDone"), skip = $("stepSkip");
+  done.classList.toggle("hidden", !needDone);
+  done.textContent = r && r.manual && !st.manual ? "Xong, máy đã đúng ✓" : "Xong ✓";
+  skip.classList.toggle("hidden", needDone || st.shoot || Date.now() - curSince < 10000);
+  $("shutter").classList.toggle("ready", !!st.shoot);
+  $("level").classList.toggle("hide", !(st.check === "upright" && orient));
+  guide.style.opacity = st.manual || st.shoot ? .9 : .45;
+}
+$("stepDone").onclick = () => { stepState[curStep].done = true; stepState[curStep].skipped = true; evalSteps(); };
+$("stepSkip").onclick = $("stepDone").onclick;
 
 /* ====== Chụp ====== */
 $("shutter").onclick = () => {
   if (!stream) return;
   if (!timer) return snap();
   let n = timer; const cd = $("countdown"); cd.textContent = n;
-  const t = setInterval(() => {
-    n--; if (n <= 0) { clearInterval(t); cd.textContent = ""; snap(); } else cd.textContent = n;
-  }, 1000);
+  const t = setInterval(() => { n--; if (n <= 0) { clearInterval(t); cd.textContent = ""; snap(); } else cd.textContent = n; }, 1000);
 };
 
 function snap() {
@@ -260,12 +385,13 @@ function snap() {
   if (facing === "user") { x.translate(w, 0); x.scale(-1, 1); }
   x.drawImage(video, 0, 0, w, h);
   const f = $("flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
-  const snapshotMetrics = { ...metrics, tilt: tiltOK };
+  const m = { ...metrics };
+  const tiltRes = mode.steps.map((st, i) => ["flat", "angle", "upright"].includes(st.check) ? stepState[i].res : null).find(Boolean);
+  m.tiltBad = !!(tiltRes && tiltRes.ok === false);
   c.toBlob(blob => {
     const url = URL.createObjectURL(blob);
-    shots.unshift(url);
-    updateCount();
-    lastReview = { url, m: snapshotMetrics };
+    shots.unshift(url); updateCount();
+    lastReview = { url, m };
     setTimeout(showReview, 250);
   }, "image/jpeg", 0.92);
 }
@@ -274,15 +400,15 @@ function showReview() {
   $("reviewImg").src = lastReview.url;
   const dl = $("download"); dl.href = lastReview.url; dl.download = "chup-dep-" + Date.now() + ".jpg";
   const m = lastReview.m, notes = [];
-  if (m.bright < 55) notes.push("Ảnh hơi <b>tối</b> – lần sau chụp gần cửa sổ/đèn.");
-  if (m.bright > 205) notes.push("Ảnh bị <b>cháy sáng</b> – tránh nắng trực tiếp.");
-  if (m.backlit) notes.push("Chủ thể bị <b>ngược sáng</b> – xoay để nguồn sáng ở phía sau người chụp.");
-  if (m.warm) notes.push("Màu ảnh bị <b>ngả vàng</b> do đèn quán – lần sau ngồi gần cửa sổ hoặc ra ánh sáng tự nhiên.");
-  if (m.tilt === false) notes.push("Ảnh hơi <b>nghiêng</b> – lần sau canh máy thẳng/song song mặt bàn.");
-  if (m.sharp < 6) notes.push("Ảnh hơi <b>mờ</b> – dùng hẹn giờ 3s để không rung tay.");
-  $("reviewCoach").innerHTML = notes.length
-    ? "<b>Góp ý:</b><br>" + notes.join("<br>")
-    : "🎉 <b>Ảnh đẹp!</b> Ánh sáng, độ nét và độ thẳng đều ổn.";
+  if (m.bright < 55) notes.push("🌑 Ảnh <b>tối</b> → dịch món sát cửa sổ rồi chụp lại.");
+  if (m.bright > 205) notes.push("☀️ Ảnh <b>cháy sáng</b> → tránh nắng gắt, lùi vào bóng râm.");
+  if (m.backlit) notes.push("🔦 <b>Ngược sáng</b> → xoay món/xoay người để ánh sáng chiếu vào món.");
+  if (m.warm) notes.push("💡 Màu <b>ngả vàng</b> → ngồi gần cửa sổ để màu món chuẩn hơn.");
+  if (m.tiltBad) notes.push("📐 Máy <b>chưa đúng góc</b> → làm lại bước chỉnh góc máy.");
+  if (m.sharp < 6) notes.push("🤚 Ảnh hơi <b>mờ</b> → bật hẹn giờ 3 giây (nút ⏱) để khỏi rung tay.");
+  const stars = Math.max(1, 5 - notes.length);
+  $("reviewCoach").innerHTML = `<b>${"⭐".repeat(stars)}${"☆".repeat(5 - stars)}</b><br>` +
+    (notes.length ? notes.join("<br>") : "🎉 <b>Ảnh đẹp!</b> Đủ sáng, nét và đúng góc. Lưu lại nhé.");
   show("review");
 }
 $("retake").onclick = () => show(stream ? "camera" : "home");
@@ -290,7 +416,7 @@ $("retake").onclick = () => show(stream ? "camera" : "home");
 /* ====== Thư viện ====== */
 function updateCount() {
   $("count").textContent = shots.length;
-  const t = $("lastThumb"); t.style.backgroundImage = shots[0] ? `url(${shots[0]})` : "";
+  $("lastThumb").style.backgroundImage = shots[0] ? `url(${shots[0]})` : "";
 }
 $("lastThumb").onclick = () => { if (shots[0]) { lastReview = { url: shots[0], m: { bright: 128, sharp: 99 } }; showReview(); } };
 function renderGallery() {
@@ -303,13 +429,12 @@ $("galleryGrid").addEventListener("click", e => {
   lastReview = { url: shots[i], m: { bright: 128, sharp: 99 } }; showReview();
 });
 
-/* Dừng camera khi tab bị ẩn */
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopStream();
   else if ($("camera").classList.contains("active")) startStream();
 });
 
-/* Chạm vào món để lấy nét (nếu trình duyệt/camera hỗ trợ) */
+/* Chạm vào màn hình để lấy nét (nếu thiết bị hỗ trợ) */
 video.addEventListener("click", async () => {
   const t = stream && stream.getVideoTracks()[0]; if (!t) return;
   const caps = t.getCapabilities ? t.getCapabilities() : {};
