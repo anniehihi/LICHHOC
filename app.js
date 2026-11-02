@@ -1,60 +1,72 @@
 "use strict";
 
-/* ====== Dữ liệu các chế độ chụp ====== */
+/* ====== Dữ liệu các chế độ chụp (tập trung đồ ăn & quán ăn) ====== */
 const MODES = {
+  pho: {
+    icon: "🍜", name: "Tô phở / bún / mì", desc: "Tô nước có hơi nóng", facing: "environment", topdown: true,
+    guide: '<circle cx="50" cy="50" r="34"/><circle cx="50" cy="50" r="24"/><path d="M78 20L60 48" stroke-dasharray="none"/>',
+    tips: [
+      "Chụp NGAY khi tô còn bốc khói – khói là thứ làm ảnh phở 'ngon' nhất. Đừng sắp xếp quá lâu.",
+      "Chụp từ trên xuống: giữ máy song song mặt bàn, tô nằm gọn trong vòng tròn.",
+      "Muốn thấy sợi phở và thịt: nghiêng máy khoảng 45°, đứng sát mép bàn.",
+      "Xếp rau thơm, chanh, ớt lên mặt tô hoặc để cạnh tô cho có màu.",
+      "Lau sạch giọt nước dùng bắn ra viền tô trước khi chụp.",
+      "Đưa đôi đũa gắp sợi lên (nhờ người ngồi cùng) – ảnh sẽ sống động hơn hẳn.",
+      "Tắt flash! Flash làm nước dùng bóng loáng và mất màu.",
+    ],
+  },
+  table: {
+    icon: "🍽️", name: "Bàn nhiều món", desc: "Cả bàn, đồ ăn nhóm", facing: "environment", topdown: true,
+    guide: '<circle cx="30" cy="35" r="16"/><circle cx="68" cy="40" r="14"/><rect x="25" y="62" width="32" height="22" rx="3"/><circle cx="76" cy="72" r="9"/>',
+    tips: [
+      "Đứng lên hoặc giơ máy cao, chụp thẳng từ trên xuống để thấy hết các món.",
+      "Dồn các món lại gần nhau, bỏ bớt chai lọ, khăn giấy, điện thoại ra khỏi khung.",
+      "Đặt món chính ở giao điểm lưới, các món phụ ở xung quanh.",
+      "Chừa thêm tay người đang gắp/cầm ly vào khung cho ảnh có 'hồn'.",
+      "Chụp 2–3 tấm với bố cục khác nhau rồi chọn tấm đẹp nhất.",
+    ],
+  },
+  dish: {
+    icon: "🥘", name: "Món ăn cận cảnh", desc: "Cơm, gỏi, nướng, bánh…", facing: "environment",
+    guide: '<ellipse cx="50" cy="55" rx="36" ry="22"/><ellipse cx="50" cy="52" rx="24" ry="13"/>',
+    tips: [
+      "Nghiêng máy 30–45° so với mặt bàn – góc đẹp nhất cho hầu hết món ăn.",
+      "Lại gần món (bước chân, đừng zoom) và để phần ngon nhất ở giao điểm lưới.",
+      "Ánh sáng chiếu từ bên hông hoặc phía sau món sẽ làm món bóng, hấp dẫn.",
+      "Đừng để bóng tay/điện thoại đổ lên món.",
+      "Món nhiều màu: thêm rau, chanh, ớt; món nâu đen: chụp sáng hơn một chút.",
+    ],
+  },
+  drink: {
+    icon: "🧋", name: "Đồ uống", desc: "Cà phê, trà sữa, nước ép", facing: "environment",
+    guide: '<path d="M36 25h28l-4 55H40z"/><path d="M36 38h28"/>',
+    tips: [
+      "Đặt ly gần cửa sổ, ánh sáng từ sau hoặc bên hông làm đồ uống trong và bóng.",
+      "Chụp ngang tầm ly cho ly cao, chụp từ trên xuống cho ly có latte art.",
+      "Lau hơi nước/vân tay trên ly trước khi chụp.",
+      "Cầm ly hoặc để cạnh quyển sách, cây nhỏ cho ảnh có bối cảnh.",
+    ],
+  },
+  shop: {
+    icon: "🏮", name: "Quán / không gian", desc: "Bên ngoài, bên trong quán", facing: "environment",
+    guide: '<path d="M0 62h100"/><rect x="22" y="30" width="56" height="32"/><path d="M22 30L50 14l28 16"/>',
+    tips: [
+      "Chụp biển hiệu và mặt tiền quán cho thẳng: đường giữa màn hình phải màu xanh.",
+      "Đứng lùi ra xa để lấy cả quán, đừng chụp từ sát cửa.",
+      "Bên trong quán: chụp lúc đông khách một chút, có người ăn cho ảnh có không khí.",
+      "Cầm máy dọc để chụp biển hiệu cao, cầm ngang để chụp không gian rộng.",
+      "Đứng chỗ có ánh sáng tự nhiên hoặc đợi người đi qua khung rồi mới chụp.",
+      "Ban đêm: chạm giữ máy chắc, dùng hẹn giờ 3 giây để đỡ mờ.",
+    ],
+  },
   portrait: {
-    icon: "🙂", name: "Chân dung", desc: "Chụp mặt, bán thân", facing: "user",
+    icon: "🙂", name: "Selfie / người", desc: "Chụp mặt, chụp cùng món", facing: "user",
     guide: '<ellipse cx="50" cy="38" rx="17" ry="22"/><path d="M18 100c0-22 14-32 32-32s32 10 32 32"/>',
     tips: [
-      "Đứng đối diện cửa sổ hoặc đèn – ánh sáng rọi vào mặt là đẹp nhất.",
-      "Đặt mắt ở khoảng 1/3 phía trên khung hình.",
-      "Cầm máy ngang tầm mắt hoặc cao hơn một chút, tránh chụp từ dưới cằm lên.",
-      "Chừa một ít khoảng trống phía trên đầu, đừng cắt sát tóc.",
-      "Cười tự nhiên: nghĩ đến chuyện vui rồi mới bấm chụp.",
-    ],
-  },
-  body: {
-    icon: "🧍", name: "Toàn thân", desc: "Chụp cả người, outfit", facing: "environment",
-    guide: '<circle cx="50" cy="16" r="8"/><path d="M36 30h28l4 34h-8l-2 32H42l-2-32h-8z"/>',
-    tips: [
-      "Nhờ người chụp ngồi hoặc hạ máy ngang hông – chân sẽ trông dài hơn.",
-      "Để cả đầu và bàn chân nằm trong khung, chừa một chút viền.",
-      "Giữ máy thẳng đứng, đừng nghiêng lên/xuống để tránh méo người.",
-      "Chọn nền gọn gàng, tránh cột/cây mọc ra từ đầu người mẫu.",
-      "Đứng lệch người 45° và dồn trọng tâm lên một chân cho tự nhiên.",
-    ],
-  },
-  food: {
-    icon: "🍜", name: "Đồ ăn", desc: "Món ngon, đồ uống", facing: "environment",
-    guide: '<circle cx="50" cy="50" r="30"/><circle cx="50" cy="50" r="20"/>',
-    tips: [
-      "Ngồi gần cửa sổ, ánh sáng bên hông đẹp hơn đèn trần vàng.",
-      "Chụp từ trên xuống (flat lay) hoặc nghiêng khoảng 45° đều đẹp.",
-      "Đặt món chính lệch tâm, thêm đũa/ly/lá làm phụ cho sinh động.",
-      "Lau sạch viền đĩa và tắt đèn flash cho màu thật hơn.",
-      "Chạm vào món chính để lấy nét trước khi chụp.",
-    ],
-  },
-  landscape: {
-    icon: "🏞️", name: "Phong cảnh", desc: "Cảnh vật, du lịch", facing: "environment",
-    guide: '<path d="M0 62h100"/><path d="M0 85L28 55l16 20 14-16 42 36"/>',
-    tips: [
-      "Đặt đường chân trời trên đường lưới 1/3 – trời hoặc đất, đừng ở giữa.",
-      "Giữ chân trời thật thẳng: đường xanh ở giữa màn hình báo máy đã cân.",
-      "Có vật gần phía trước (hoa, đá, người) sẽ tạo chiều sâu cho ảnh.",
-      "Giờ vàng: ngay sau bình minh hoặc trước hoàng hôn màu rất đẹp.",
-      "Lau ống kính bằng góc áo – nguyên nhân ảnh mờ hay gặp nhất!",
-    ],
-  },
-  product: {
-    icon: "📦", name: "Sản phẩm", desc: "Đồ bán hàng, đồ vật", facing: "environment",
-    guide: '<rect x="28" y="30" width="44" height="40" rx="3"/>',
-    tips: [
-      "Dùng nền trơn (giấy trắng, khăn, tường) để sản phẩm nổi bật.",
-      "Đặt gần cửa sổ, dùng tờ giấy trắng hắt sáng để xoá bóng tối.",
-      "Chụp cả ảnh toàn thể và ảnh cận chi tiết.",
-      "Đừng zoom bằng ngón tay – hãy bước lại gần để ảnh nét hơn.",
-      "Giữ sản phẩm chiếm khoảng 2/3 khung hình, chừa lề đều.",
+      "Ngồi gần cửa sổ hoặc cửa quán, quay mặt về phía ánh sáng.",
+      "Cầm máy ngang tầm mắt hoặc cao hơn một chút.",
+      "Đưa món ăn vào khung, cạnh mặt, cho ảnh có câu chuyện.",
+      "Đèn quán vàng: lùi ra khỏi đèn sát đầu để mặt không bị bóng tối dưới mắt.",
     ],
   },
 };
@@ -65,7 +77,7 @@ const video = $("video"), gridCv = $("grid"), guide = $("guide");
 const screens = ["home", "camera", "review", "gallery"];
 let mode = null, facing = "environment", stream = null;
 let showGrid = true, timer = 0, tipIdx = 0, tipInterval = null, analyzeInterval = null;
-let tiltOK = null, shots = [], lastReview = null;
+let tiltMsg = null, tiltOK = null, shots = [], lastReview = null;
 let metrics = { bright: 128, sharp: 99, backlit: false };
 
 function show(id) { screens.forEach(s => $(s).classList.toggle("active", s === id)); }
@@ -168,6 +180,15 @@ function onTilt(e) {
   if (e.gamma == null || e.beta == null) { $("level").classList.add("hide"); return; }
   $("level").classList.remove("hide");
   // Máy cầm dọc: gamma = nghiêng trái/phải. Máy cầm ngang: dùng beta.
+  if (mode && mode.topdown) {
+    // Chụp từ trên xuống: máy phải nằm song song mặt bàn (beta, gamma ≈ 0)
+    const off = Math.hypot(e.beta, e.gamma);
+    tiltOK = off < 12;
+    $("level").classList.add("hide");
+    tiltMsg = tiltOK ? null : off < 40 ? "📱 Hạ máy cho song song mặt bàn (chụp từ trên xuống)" : null;
+    if (off >= 40) tiltOK = true; // đang cầm nghiêng 45° chủ ý, không cảnh báo
+    return;
+  }
   const portrait = innerHeight >= innerWidth;
   let roll = portrait ? e.gamma : (e.beta > 0 ? 90 - e.beta : -90 - e.beta);
   roll = Math.max(-45, Math.min(45, roll));
@@ -186,10 +207,10 @@ function analyze() {
   pctx.drawImage(video, 0, 0, 96, 96);
   const d = pctx.getImageData(0, 0, 96, 96).data;
   const lum = new Float32Array(96 * 96);
-  let sum = 0, centre = 0, cn = 0, edge = 0, en = 0;
+  let rs = 0, bs = 0, sum = 0, centre = 0, cn = 0, edge = 0, en = 0;
   for (let i = 0; i < lum.length; i++) {
     const y = .299 * d[i * 4] + .587 * d[i * 4 + 1] + .114 * d[i * 4 + 2];
-    lum[i] = y; sum += y;
+    lum[i] = y; sum += y; rs += d[i * 4]; bs += d[i * 4 + 2];
     const x = i % 96, r = (i / 96) | 0;
     if (x > 28 && x < 68 && r > 28 && r < 68) { centre += y; cn++; } else { edge += y; en++; }
   }
@@ -204,7 +225,7 @@ function analyze() {
   const sharp = s2 / n - (s / n) ** 2;
   prevSharp.push(sharp); if (prevSharp.length > 4) prevSharp.shift();
   const avgSharp = prevSharp.reduce((a, b) => a + b, 0) / prevSharp.length;
-  metrics = { bright, sharp: avgSharp, backlit: edge / en - centre / cn > 45 && centre / cn < 100 };
+  metrics = { bright, sharp: avgSharp, warm: rs / (bs + 1) > 1.55, backlit: edge / en - centre / cn > 45 && centre / cn < 100 };
   updateLiveTip();
 }
 
@@ -214,7 +235,8 @@ function updateLiveTip() {
   if (m.bright < 55) msg = "🌑 Quá tối – tìm chỗ sáng hơn hoặc bật đèn";
   else if (m.bright > 205) msg = "☀️ Quá sáng – tránh nắng gắt, che bớt ánh sáng";
   else if (m.backlit) msg = "🔦 Ngược sáng – xoay người để ánh sáng chiếu vào chủ thể";
-  else if (tiltOK === false) msg = "📐 Máy đang nghiêng – xoay cho đường giữa thành màu xanh";
+  else if (m.warm) msg = "💡 Đèn vàng làm món ngả màu – ngồi gần cửa sổ/ánh sáng trắng hơn";
+  else if (tiltOK === false) msg = tiltMsg || "📐 Máy đang nghiêng – xoay cho đường giữa thành màu xanh";
   else if (m.sharp < 6 && m.bright >= 55) msg = "🤚 Ảnh mờ/rung – giữ chắc tay, hoặc lau ống kính";
   else { msg = "✅ Tuyệt! Ánh sáng và độ nét tốt – chụp đi"; cls = "ok"; }
   el.textContent = msg; el.className = "liveTip " + cls;
@@ -255,7 +277,8 @@ function showReview() {
   if (m.bright < 55) notes.push("Ảnh hơi <b>tối</b> – lần sau chụp gần cửa sổ/đèn.");
   if (m.bright > 205) notes.push("Ảnh bị <b>cháy sáng</b> – tránh nắng trực tiếp.");
   if (m.backlit) notes.push("Chủ thể bị <b>ngược sáng</b> – xoay để nguồn sáng ở phía sau người chụp.");
-  if (m.tilt === false) notes.push("Ảnh hơi <b>nghiêng</b> – lần sau canh đường giữa thành màu xanh.");
+  if (m.warm) notes.push("Màu ảnh bị <b>ngả vàng</b> do đèn quán – lần sau ngồi gần cửa sổ hoặc ra ánh sáng tự nhiên.");
+  if (m.tilt === false) notes.push("Ảnh hơi <b>nghiêng</b> – lần sau canh máy thẳng/song song mặt bàn.");
   if (m.sharp < 6) notes.push("Ảnh hơi <b>mờ</b> – dùng hẹn giờ 3s để không rung tay.");
   $("reviewCoach").innerHTML = notes.length
     ? "<b>Góp ý:</b><br>" + notes.join("<br>")
@@ -284,4 +307,16 @@ $("galleryGrid").addEventListener("click", e => {
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopStream();
   else if ($("camera").classList.contains("active")) startStream();
+});
+
+/* Chạm vào món để lấy nét (nếu trình duyệt/camera hỗ trợ) */
+video.addEventListener("click", async () => {
+  const t = stream && stream.getVideoTracks()[0]; if (!t) return;
+  const caps = t.getCapabilities ? t.getCapabilities() : {};
+  try {
+    if (caps.focusMode && caps.focusMode.includes("single-shot")) {
+      await t.applyConstraints({ advanced: [{ focusMode: "single-shot" }] });
+      setTimeout(() => t.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {}), 1500);
+    }
+  } catch {}
 });
