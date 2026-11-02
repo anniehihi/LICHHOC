@@ -88,12 +88,13 @@ function sampleHTML(modeKey, ang) {
 /* ====== DOM & trạng thái ====== */
 const $ = id => document.getElementById(id);
 const video = $("video"), gridCv = $("grid"), guide = $("guide");
-const screens = ["home", "prep", "angles", "camera", "review", "gallery"];
+const screens = ["home", "prep", "angles", "camera", "review", "gallery", "list"];
 let mode = null, modeKey = null, angle = null, steps = [], doneAngles = {}, seenPrep = {}, facing = "environment", stream = null;
 let showGrid = true, timer = 0, analyzeInterval = null;
-let orient = null, shots = [], lastReview = null;
+let orient = null, shots = [];
 let metrics = { bright: 128, sharp: 99, backlit: false, warm: false };
 let stepState = [], curStep = 0, curSince = 0, prepIdx = 0;
+const safe = (fn, d) => { try { return fn(); } catch { return d; } };
 function show(id) { screens.forEach(s => $(s).classList.toggle("active", s === id)); }
 
 /* ====== Màn hình chính ====== */
@@ -128,6 +129,7 @@ $("prepBack").onclick = () => { if (prepIdx > 0) { prepIdx--; renderPrep(); } el
 
 /* ====== Chọn góc chụp ====== */
 function openAngles() {
+  if (!mode) return show("home");
   stopStream(); clearInterval(analyzeInterval);
   window.removeEventListener("deviceorientation", onTilt);
   const done = doneAngles[modeKey] || (doneAngles[modeKey] = new Set());
@@ -318,69 +320,261 @@ function renderStep() {
 $("stepDone").onclick = () => { stepState[curStep].done = true; stepState[curStep].skipped = true; evalSteps(); };
 $("stepSkip").onclick = $("stepDone").onclick;
 
-/* ====== Chụp ====== */
+/* ====== Lưu trữ lâu dài (IndexedDB) ====== */
+const DB = (() => {
+  let dbp;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open("chupdep", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("shots", { keyPath: "id" });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (m, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction("shots", m); const rq = fn(t.objectStore("shots"));
+      t.oncomplete = () => res(rq && rq.result); t.onerror = () => rej(t.error);
+    });
+  };
+  return { all: () => tx("readonly", s => s.getAll()), put: v => tx("readwrite", s => s.put(v)), del: id => tx("readwrite", s => s.delete(id)) };
+})();
+
+async function loadShots() {
+  try {
+    const all = await DB.all(); all.sort((a, b) => b.ts - a.ts);
+    shots = all.map(s => ({ ...s, url: URL.createObjectURL(s.blob) }));
+  } catch { /* chế độ riêng tư: vẫn chạy, chỉ không lưu lâu dài */ }
+  rebuildDone(); updateCount();
+}
+function rebuildDone() {
+  doneAngles = {};
+  shots.forEach(s => (doneAngles[s.mode] || (doneAngles[s.mode] = new Set())).add(s.angle));
+}
+function updateCount() {
+  $("count").textContent = shots.length;
+  $("lastThumb").style.backgroundImage = shots[0] ? `url(${shots[0].url})` : "";
+  const total = Object.values(MODES).reduce((n, m) => n + m.angles.length, 0);
+  const done = Object.values(doneAngles).reduce((n, s) => n + s.size, 0);
+  $("listCount").textContent = `${done}/${total}`;
+}
+
+/* ====== Chụp (có chế độ chụp 3 tấm chọn tấm nét nhất) ====== */
+let burst = false, snapping = false;
+$("burstBtn").onclick = e => { burst = !burst; e.currentTarget.classList.toggle("on", burst); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 $("shutter").onclick = () => {
-  if (!stream) return;
+  if (!stream || snapping) return;
   if (!timer) return snap();
   let n = timer; const cd = $("countdown"); cd.textContent = n;
   const t = setInterval(() => { n--; if (n <= 0) { clearInterval(t); cd.textContent = ""; snap(); } else cd.textContent = n; }, 1000);
 };
 
-function snap() {
+function grab() {
   const w = video.videoWidth, h = video.videoHeight;
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const x = c.getContext("2d");
   if (facing === "user") { x.translate(w, 0); x.scale(-1, 1); }
   x.drawImage(video, 0, 0, w, h);
+  return c;
+}
+function sharpnessOf(c) {
+  const W = 160, H = Math.round(160 * c.height / c.width);
+  const t = document.createElement("canvas"); t.width = W; t.height = H;
+  const x = t.getContext("2d", { willReadFrequently: true }); x.drawImage(c, 0, 0, W, H);
+  const d = x.getImageData(0, 0, W, H).data, L = new Float32Array(W * H);
+  for (let i = 0; i < L.length; i++) L[i] = .299 * d[i * 4] + .587 * d[i * 4 + 1] + .114 * d[i * 4 + 2];
+  let s = 0, s2 = 0, n = 0;
+  for (let r = 1; r < H - 1; r++) for (let q = 1; q < W - 1; q++) {
+    const i = r * W + q, l = 4 * L[i] - L[i - 1] - L[i + 1] - L[i - W] - L[i + W];
+    s += l; s2 += l * l; n++;
+  }
+  return s2 / n - (s / n) ** 2;
+}
+
+async function snap() {
+  snapping = true;
   const f = $("flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
+  let best = grab();
+  if (burst) {
+    let bs = sharpnessOf(best);
+    for (let i = 0; i < 2; i++) { await sleep(220); const c = grab(), sc = sharpnessOf(c); if (sc > bs) { bs = sc; best = c; } }
+  }
   const m = { ...metrics };
   const tiltRes = steps.map((st, i) => ["flat", "angle", "upright"].includes(st.check) ? stepState[i].res : null).find(Boolean);
   m.tiltBad = !!(tiltRes && tiltRes.ok === false);
-  c.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
-    shots.unshift(url); updateCount();
-    (doneAngles[modeKey] || (doneAngles[modeKey] = new Set())).add(angle.key);
-    lastReview = { url, m };
-    setTimeout(showReview, 250);
+  best.toBlob(blob => {
+    snapping = false;
+    if (!blob) return;
+    const shot = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), blob, mode: modeKey, angle: angle.key, ts: Date.now() };
+    shot.url = URL.createObjectURL(blob);
+    shots.unshift(shot); rebuildDone(); updateCount();
+    DB.put({ id: shot.id, blob, mode: shot.mode, angle: shot.angle, ts: shot.ts }).catch(() => {});
+    setTimeout(() => showReview(shot, m), 250);
   }, "image/jpeg", 0.92);
 }
 
-function showReview() {
-  $("reviewImg").src = lastReview.url;
-  const dl = $("download"); dl.href = lastReview.url; dl.download = "chup-dep-" + Date.now() + ".jpg";
-  const m = lastReview.m, notes = [];
+/* ====== Xem lại + làm đẹp ảnh ====== */
+let cur = null, edited = null, renderTok = 0, pendingRender = null, editUrl = null;
+const edit = { ratio: "orig", enhance: true, caption: safe(() => localStorage.getItem("caption") || "", "") };
+
+function coachHTML(m) {
+  if (!m) return `<b>Ảnh đã lưu trong máy.</b> Bạn có thể làm đẹp, cắt tỉ lệ, chèn chữ rồi lưu/chia sẻ.`;
+  const notes = [];
   if (m.bright < 55) notes.push("🌑 Ảnh <b>tối</b> → dịch món sát cửa sổ rồi chụp lại.");
   if (m.bright > 205) notes.push("☀️ Ảnh <b>cháy sáng</b> → tránh nắng gắt, lùi vào bóng râm.");
   if (m.backlit) notes.push("🔦 <b>Ngược sáng</b> → xoay món/xoay người để ánh sáng chiếu vào món.");
-  if (m.warm) notes.push("💡 Màu <b>ngả vàng</b> → ngồi gần cửa sổ để màu món chuẩn hơn.");
+  if (m.warm) notes.push("💡 Màu <b>ngả vàng</b> → app đã tự chỉnh khi bạn bật ✨ Làm đẹp; lần sau ngồi gần cửa sổ sẽ chuẩn hơn.");
   if (m.tiltBad) notes.push("📐 Máy <b>chưa đúng góc</b> → làm lại bước chỉnh góc máy.");
-  if (m.sharp < 6) notes.push("🤚 Ảnh hơi <b>mờ</b> → bật hẹn giờ 3 giây (nút ⏱) để khỏi rung tay.");
+  if (m.sharp < 6) notes.push("🤚 Ảnh hơi <b>mờ</b> → bật hẹn giờ 3 giây (⏱) hoặc chế độ 3× để khỏi rung tay.");
   const stars = Math.max(1, 5 - notes.length);
-  $("reviewCoach").innerHTML = `<b>${"⭐".repeat(stars)}${"☆".repeat(5 - stars)}</b><br>` +
-    (notes.length ? notes.join("<br>") : "🎉 <b>Ảnh đẹp!</b> Đủ sáng, nét và đúng góc. Lưu lại nhé.");
-  const dn = mode && doneAngles[modeKey], nxt = mode && mode.angles.find(a => !(dn && dn.has(a.key)));
-  $("reviewCoach").innerHTML += nxt ? `<br><br>👉 <b>Chụp thêm góc "${nxt.name}"</b> để có nhiều ảnh chọn.` : `<br><br>✅ Bạn đã chụp đủ các góc, giờ chọn tấm đẹp nhất nhé!`;
+  let h = `<b>${"⭐".repeat(stars)}${"☆".repeat(5 - stars)}</b><br>` +
+    (notes.length ? notes.join("<br>") : "🎉 <b>Ảnh đẹp!</b> Đủ sáng, nét và đúng góc.");
+  const dn = doneAngles[modeKey], nxt = mode && mode.angles.find(a => !(dn && dn.has(a.key)));
+  h += nxt ? `<br><br>👉 <b>Chụp thêm góc "${nxt.name}"</b> để có nhiều ảnh chọn.` : `<br><br>✅ Đã chụp đủ các góc, giờ chọn tấm đẹp nhất nhé!`;
+  return h;
+}
+
+function showReview(shot, m) {
+  cur = shot;
+  if (MODES[shot.mode]) { modeKey = shot.mode; mode = MODES[shot.mode]; }
+  $("reviewCoach").innerHTML = coachHTML(m);
+  $("capInput").value = edit.caption;
+  syncEditUI();
+  scheduleRender();
   show("review");
 }
-$("retake").onclick = () => show(stream ? "camera" : "home");
+function syncEditUI() {
+  document.querySelectorAll("#ratioChips button").forEach(b => b.classList.toggle("on", b.dataset.r === edit.ratio));
+  $("enhanceBtn").classList.toggle("on", edit.enhance);
+}
+function scheduleRender() { pendingRender = renderEdited(); return pendingRender; }
+
+const loadImg = url => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+
+async function renderEdited() {
+  const tok = ++renderTok;
+  const img = await loadImg(cur.url);
+  const canvas = processImage(img, edit);
+  const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.92));
+  if (tok !== renderTok) return;
+  edited = blob;
+  if (editUrl) URL.revokeObjectURL(editUrl);
+  editUrl = URL.createObjectURL(blob);
+  $("reviewImg").src = editUrl;
+}
+
+function processImage(img, ed) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  let sx = 0, sy = 0, sw = w, sh = h;
+  if (ed.ratio !== "orig") {
+    const [rw, rh] = ed.ratio.split(":").map(Number), t = rw / rh;
+    if (w / h > t) { sw = Math.round(h * t); sx = Math.round((w - sw) / 2); }
+    else { sh = Math.round(w / t); sy = Math.round((h - sh) / 2); }
+  }
+  const sc = Math.min(1, 1920 / Math.max(sw, sh));
+  const cw = Math.round(sw * sc), ch = Math.round(sh * sc);
+  const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+  if (ed.enhance) enhancePixels(x, cw, ch);
+  if (ed.caption.trim()) drawCaption(x, cw, ch, ed.caption.trim());
+  return c;
+}
+
+/* Làm đẹp tự động: sáng vừa phải, bớt ngả vàng, màu tươi hơn, tương phản nhẹ */
+function enhancePixels(x, w, h) {
+  const id = x.getImageData(0, 0, w, h), d = id.data;
+  let sum = 0, rs = 0, bs = 0, n = 0;
+  for (let i = 0; i < d.length; i += 64) { sum += .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]; rs += d[i]; bs += d[i + 2]; n++; }
+  const gain = Math.min(1.35, Math.max(.9, 125 / (sum / n)));
+  const wb = rs / (bs + 1);
+  let rg = 1, bg = 1;
+  if (wb > 1.25) { const k = Math.min(.12, (wb - 1.25) * .2); rg = 1 - k; bg = 1 + k; }
+  const sat = 1.18, con = 1.06;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i] * gain * rg, g = d[i + 1] * gain, b = d[i + 2] * gain * bg;
+    r = (r - 128) * con + 128; g = (g - 128) * con + 128; b = (b - 128) * con + 128;
+    const l = .299 * r + .587 * g + .114 * b;
+    r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat;
+    d[i] = r < 0 ? 0 : r > 255 ? 255 : r; d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+  }
+  x.putImageData(id, 0, 0);
+}
+
+function drawCaption(x, w, h, text) {
+  const bar = Math.round(Math.min(w, h) * .2);
+  const g = x.createLinearGradient(0, h - bar, 0, h);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.6)");
+  x.fillStyle = g; x.fillRect(0, h - bar, w, bar);
+  let size = Math.round(w * .055);
+  const font = s => `700 ${s}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  x.font = font(size);
+  while (x.measureText(text).width > w * .92 && size > 12) { size -= 2; x.font = font(size); }
+  x.fillStyle = "#fff"; x.textBaseline = "alphabetic"; x.shadowColor = "rgba(0,0,0,.6)"; x.shadowBlur = size * .2;
+  x.fillText(text, w * .04, h - w * .035);
+  x.shadowBlur = 0;
+}
+
+document.querySelectorAll("#ratioChips button").forEach(b => b.onclick = () => { edit.ratio = b.dataset.r; syncEditUI(); scheduleRender(); });
+$("enhanceBtn").onclick = () => { edit.enhance = !edit.enhance; syncEditUI(); scheduleRender(); };
+let capTimer;
+$("capInput").oninput = e => {
+  edit.caption = e.target.value; safe(() => localStorage.setItem("caption", edit.caption));
+  clearTimeout(capTimer); capTimer = setTimeout(scheduleRender, 250);
+};
+
+/* Lưu / chia sẻ: trên iPhone mở bảng chia sẻ → chọn "Lưu hình ảnh" */
+$("saveBtn").onclick = async () => {
+  if (pendingRender) await pendingRender;
+  if (!edited) return;
+  const file = new File([edited], "chup-dep-" + Date.now() + ".jpg", { type: "image/jpeg" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(edited); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+$("delBtn").onclick = async () => {
+  if (!cur || !confirm("Xoá ảnh này khỏi máy?")) return;
+  shots = shots.filter(s => s.id !== cur.id);
+  DB.del(cur.id).catch(() => {});
+  rebuildDone(); updateCount(); renderGallery(); show("gallery");
+};
+$("retake").onclick = () => show(stream ? "camera" : "angles");
 $("nextAngle").onclick = () => openAngles();
 
 /* ====== Thư viện ====== */
-function updateCount() {
-  $("count").textContent = shots.length;
-  $("lastThumb").style.backgroundImage = shots[0] ? `url(${shots[0]})` : "";
-}
-$("lastThumb").onclick = () => { if (shots[0]) { lastReview = { url: shots[0], m: { bright: 128, sharp: 99 } }; showReview(); } };
+$("lastThumb").onclick = () => { if (shots[0]) showReview(shots[0], null); };
 function renderGallery() {
   $("galleryGrid").innerHTML = shots.length
-    ? shots.map((u, i) => `<img src="${u}" data-i="${i}" alt="Ảnh ${i + 1}">`).join("")
+    ? shots.map((s, i) => `<img src="${s.url}" data-i="${i}" alt="Ảnh ${i + 1}">`).join("")
     : "<p>Chưa có ảnh nào. Hãy chụp thử nhé!</p>";
 }
 $("galleryGrid").addEventListener("click", e => {
   const i = e.target.dataset?.i; if (i == null) return;
-  lastReview = { url: shots[i], m: { bright: 128, sharp: 99 } }; showReview();
+  showReview(shots[i], null);
 });
 
+/* ====== Danh sách chụp cả quán ====== */
+function openList() {
+  const html = Object.entries(MODES).map(([k, m]) => {
+    const ds = doneAngles[k] || new Set();
+    return `<h3>${m.icon} ${m.name} <small>${ds.size}/${m.angles.length}</small></h3>` +
+      m.angles.map(a => `<button class="listRow${ds.has(a.key) ? " done" : ""}" data-m="${k}" data-a="${a.key}">` +
+        `<span class="tick">${ds.has(a.key) ? "✓" : ""}</span><span><b>${a.name}</b><small>${a.desc}</small></span></button>`).join("");
+  }).join("");
+  $("listBody").innerHTML = html;
+  show("list");
+}
+$("listBody").addEventListener("click", e => {
+  const b = e.target.closest(".listRow"); if (!b) return;
+  modeKey = b.dataset.m; mode = MODES[modeKey];
+  angle = mode.angles.find(a => a.key === b.dataset.a); openCamera();
+});
+$("openList").onclick = openList;
+$("listBack").onclick = () => show("home");
+
+/* ====== Khác ====== */
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopStream();
   else if ($("camera").classList.contains("active")) startStream();
@@ -397,3 +591,6 @@ video.addEventListener("click", async () => {
     }
   } catch {}
 });
+
+loadShots();
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});

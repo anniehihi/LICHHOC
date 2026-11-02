@@ -1,0 +1,16 @@
+{
+  "name": "Chụp Đẹp",
+  "short_name": "Chụp Đẹp",
+  "description": "Hướng dẫn chụp ảnh phở, đồ ăn và quán ăn từng bước",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "lang": "vi",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
